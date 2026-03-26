@@ -51,6 +51,9 @@
 // Re-export core module (available on all platforms)
 @_exported import WKZombie
 
+// Re-export CDP engine (available on all platforms - full JavaScript support)
+@_exported import WKZombieCDP
+
 // Re-export platform-specific modules
 #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS) || os(visionOS)
 @_exported import WKZombieApple

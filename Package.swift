@@ -19,7 +19,8 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "2.7.0")
+        .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "2.7.0"),
+        .package(url: "https://github.com/vapor/websocket-kit.git", from: "2.15.0")
     ],
     targets: [
         // Unified target that re-exports platform-specific modules
@@ -27,6 +28,7 @@ let package = Package(
             name: "SwiftHeadlessWebKit",
             dependencies: [
                 "WKZombie",
+                "WKZombieCDP",
                 .target(name: "WKZombieApple", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS])),
                 .target(name: "WKZombieLinux", condition: .when(platforms: [.linux]))
             ],
@@ -46,6 +48,17 @@ let package = Package(
         .target(
             name: "WKZombieApple",
             dependencies: ["WKZombie"],
+            swiftSettings: [
+                .swiftLanguageMode(.v6)
+            ]
+        ),
+        // CDP-based engine (all platforms - full JavaScript support)
+        .target(
+            name: "WKZombieCDP",
+            dependencies: [
+                "WKZombie",
+                .product(name: "WebSocketKit", package: "websocket-kit")
+            ],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
             ]
@@ -85,6 +98,10 @@ let package = Package(
             resources: [
                 .copy("Resources")
             ]
+        ),
+        .testTarget(
+            name: "WKZombieCDPTests",
+            dependencies: ["WKZombieCDP"]
         )
     ]
 )
