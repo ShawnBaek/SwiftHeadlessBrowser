@@ -140,6 +140,9 @@ public final class CDPEngine: BrowserEngine, @unchecked Sendable {
     // MARK: - BrowserEngine Protocol
 
     public func openURL(_ url: URL, postAction: PostAction) async throws -> (Data, URL?) {
+        // Register event waiters BEFORE navigating to avoid race condition
+        let loadWaiter = connection.expectEvent("Page.loadEventFired")
+
         // Navigate to the URL
         let response = try await connection.send(
             method: "Page.navigate",
@@ -154,7 +157,7 @@ public final class CDPEngine: BrowserEngine, @unchecked Sendable {
         }
 
         // Wait for page to be ready based on strategy
-        try await waitForPageReady()
+        try await waitForPageReady(loadWaiter: loadWaiter)
 
         // Handle PostAction
         try await handlePostAction(postAction)
@@ -184,6 +187,9 @@ public final class CDPEngine: BrowserEngine, @unchecked Sendable {
     }
 
     public func executeAndLoad(_ script: String, postAction: PostAction) async throws -> (Data, URL?) {
+        // Register event waiter BEFORE executing script that may navigate
+        let loadWaiter = connection.expectEvent("Page.loadEventFired")
+
         // Execute the script (which may cause navigation)
         _ = try await connection.send(
             method: "Runtime.evaluate",
@@ -196,7 +202,7 @@ public final class CDPEngine: BrowserEngine, @unchecked Sendable {
         )
 
         // Wait for any triggered navigation
-        try await waitForPageReady()
+        try await waitForPageReady(loadWaiter: loadWaiter)
         try await handlePostAction(postAction)
 
         // Get rendered HTML
@@ -233,33 +239,26 @@ public final class CDPEngine: BrowserEngine, @unchecked Sendable {
 
     // MARK: - Wait Strategies
 
-    private func waitForPageReady() async throws {
+    private func waitForPageReady(loadWaiter: CDPConnection.EventWaiter) async throws {
         switch waitStrategy {
         case .load:
-            try await waitForLoadEvent()
+            try await loadWaiter.wait(timeout: _timeoutInSeconds)
         case .domContentLoaded:
-            try await waitForDOMContentLoaded()
+            // For domContentLoaded we still use the load waiter as a fallback
+            try await loadWaiter.wait(timeout: _timeoutInSeconds)
         case .networkIdle(let idleTime):
-            try await waitForLoadEvent()
+            try await loadWaiter.wait(timeout: _timeoutInSeconds)
             try await waitForNetworkIdle(idleTime: idleTime)
         case .selector(let selector):
-            try await waitForLoadEvent()
+            try await loadWaiter.wait(timeout: _timeoutInSeconds)
             try await waitForSelector(selector)
         case .jsCondition(let condition):
-            try await waitForLoadEvent()
+            try await loadWaiter.wait(timeout: _timeoutInSeconds)
             try await waitForJSCondition(condition)
         case .loadAndNetworkIdle(let idleTime):
-            try await waitForLoadEvent()
+            try await loadWaiter.wait(timeout: _timeoutInSeconds)
             try await waitForNetworkIdle(idleTime: idleTime)
         }
-    }
-
-    private func waitForLoadEvent() async throws {
-        try await connection.waitForEvent("Page.loadEventFired", timeout: _timeoutInSeconds)
-    }
-
-    private func waitForDOMContentLoaded() async throws {
-        try await connection.waitForEvent("Page.domContentEventFired", timeout: _timeoutInSeconds)
     }
 
     private func waitForNetworkIdle(idleTime: TimeInterval) async throws {

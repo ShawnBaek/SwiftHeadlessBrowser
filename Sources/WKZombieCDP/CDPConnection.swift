@@ -45,8 +45,10 @@ public final class CDPConnection: @unchecked Sendable {
 
     struct ConnectionState {
         var nextId: Int = 1
+        var nextEventWaiterId: Int = 1
         var pendingRequests: [Int: CheckedContinuation<CDPResponse, any Error>] = [:]
         var eventHandlers: [String: [@Sendable (CDPEvent) -> Void]] = [:]
+        var eventWaiters: [Int: (method: String, handler: @Sendable (CDPEvent) -> Void)] = [:]
         var isConnected: Bool = false
     }
 
@@ -139,10 +141,25 @@ public final class CDPConnection: @unchecked Sendable {
                 }
                 continuation?.resume(returning: response)
             case .event(let event):
+                // Fire persistent handlers
                 let handlers = _state.withLockedValue { state in
                     state.eventHandlers[event.method] ?? []
                 }
                 for handler in handlers {
+                    handler(event)
+                }
+                // Fire and remove one-shot waiters
+                let matchedWaiters = _state.withLockedValue { state -> [@Sendable (CDPEvent) -> Void] in
+                    var matched: [@Sendable (CDPEvent) -> Void] = []
+                    for (id, waiter) in state.eventWaiters {
+                        if waiter.method == event.method {
+                            matched.append(waiter.handler)
+                            state.eventWaiters.removeValue(forKey: id)
+                        }
+                    }
+                    return matched
+                }
+                for handler in matchedWaiters {
                     handler(event)
                 }
             }
@@ -215,31 +232,71 @@ public final class CDPConnection: @unchecked Sendable {
         }
     }
 
+    /// Represents a pending event wait that has been registered but not yet awaited.
+    /// The waiter is registered synchronously to avoid race conditions.
+    public struct EventWaiter: Sendable {
+        let stream: AsyncStream<CDPEvent>
+        let waiterId: Int
+        let connection: CDPConnection
+
+        /// Await the event with a timeout.
+        public func wait(timeout: TimeInterval = 30.0) async throws -> CDPEvent? {
+            try await withThrowingTaskGroup(of: CDPEvent?.self) { group in
+                group.addTask {
+                    for await event in stream {
+                        return event
+                    }
+                    return nil
+                }
+
+                group.addTask { [connection, waiterId] in
+                    try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                    connection._state.withLockedValue { state in
+                        state.eventWaiters.removeValue(forKey: waiterId)
+                    }
+                    throw CDPError.timeout("Timed out waiting for event")
+                }
+
+                let result = try await group.next()
+                group.cancelAll()
+                return result ?? nil
+            }
+        }
+    }
+
+    /// Register a waiter for a CDP event synchronously.
+    /// Returns an `EventWaiter` that can be awaited later.
+    /// This allows registering BEFORE the action that triggers the event.
+    ///
+    /// Usage:
+    /// ```swift
+    /// let waiter = connection.expectEvent("Page.loadEventFired")
+    /// _ = try await connection.send(method: "Page.navigate", params: [...])
+    /// try await waiter.wait(timeout: 30)
+    /// ```
+    public func expectEvent(_ method: String) -> EventWaiter {
+        let (stream, continuation) = AsyncStream<CDPEvent>.makeStream()
+        let waiterId = _state.withLockedValue { state -> Int in
+            let id = state.nextEventWaiterId
+            state.nextEventWaiterId += 1
+            let handler: @Sendable (CDPEvent) -> Void = { event in
+                continuation.yield(event)
+                continuation.finish()
+            }
+            state.eventWaiters[id] = (method: method, handler: handler)
+            return id
+        }
+        return EventWaiter(stream: stream, waiterId: waiterId, connection: self)
+    }
+
     /// Wait for a specific CDP event, with timeout.
-    /// - Parameters:
-    ///   - method: The CDP event method to wait for.
-    ///   - timeout: Maximum wait time.
-    /// - Returns: The event, if received.
+    ///
+    /// NOTE: This has a race condition if called after the action that triggers the event.
+    /// Prefer `expectEvent()` + `waiter.wait()` for reliable event waiting.
     @discardableResult
     public func waitForEvent(_ method: String, timeout: TimeInterval = 30.0) async throws -> CDPEvent? {
-        try await withThrowingTaskGroup(of: CDPEvent?.self) { group in
-            group.addTask { [self] in
-                await withCheckedContinuation { (continuation: CheckedContinuation<CDPEvent?, Never>) in
-                    self.on(method) { event in
-                        continuation.resume(returning: event)
-                    }
-                }
-            }
-
-            group.addTask {
-                try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
-                throw CDPError.timeout("Timed out waiting for event: \(method)")
-            }
-
-            let result = try await group.next()
-            group.cancelAll()
-            return result ?? nil
-        }
+        let waiter = expectEvent(method)
+        return try await waiter.wait(timeout: timeout)
     }
 
     // MARK: - Cleanup
