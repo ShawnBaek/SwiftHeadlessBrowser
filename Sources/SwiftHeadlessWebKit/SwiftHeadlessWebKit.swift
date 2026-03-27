@@ -23,10 +23,10 @@
 
 /// SwiftHeadlessWebKit - A cross-platform headless web browser for Swift.
 ///
-/// This unified module automatically provides the correct implementation
-/// for each platform:
-/// - **macOS/iOS**: Uses WKWebView for full JavaScript support
-/// - **Linux**: Uses HeadlessEngine for HTTP-based scraping
+/// This unified module provides:
+/// - **HeadlessBrowser**: Core browser class with HTML parsing (all platforms)
+/// - **RemoteBrowserEngine**: Full JavaScript via Chrome/Chromium headless (all platforms)
+/// - **WebKitEngine**: WKWebView-based rendering (Apple platforms only)
 ///
 /// ## Quick Start
 ///
@@ -54,9 +54,7 @@
 // Re-export remote browser engine (available on all platforms - full JavaScript support via Chrome DevTools Protocol)
 @_exported import HeadlessBrowserRemote
 
-// Re-export platform-specific modules
+// Re-export Apple-specific module (WebKitEngine with WKWebView)
 #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS) || os(visionOS)
 @_exported import HeadlessBrowserApple
-#elseif os(Linux)
-@_exported import HeadlessBrowserLinux
 #endif

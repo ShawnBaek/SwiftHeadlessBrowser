@@ -29,8 +29,7 @@ let package = Package(
             dependencies: [
                 "HeadlessBrowserCore",
                 "HeadlessBrowserRemote",
-                .target(name: "HeadlessBrowserApple", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS])),
-                .target(name: "HeadlessBrowserLinux", condition: .when(platforms: [.linux]))
+                .target(name: "HeadlessBrowserApple", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS]))
             ],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
@@ -61,27 +60,6 @@ let package = Package(
             ],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
-            ]
-        ),
-        // Linux-specific extensions
-        .target(
-            name: "HeadlessBrowserLinux",
-            dependencies: [
-                "HeadlessBrowserCore",
-                .target(name: "CWebKit", condition: .when(platforms: [.linux]))
-            ],
-            swiftSettings: [
-                .swiftLanguageMode(.v6)
-            ]
-        ),
-        // System library for WebKit on Linux
-        .systemLibrary(
-            name: "CWebKit",
-            path: "Sources/CWebKit",
-            pkgConfig: "wpe-webkit-1.1",
-            providers: [
-                .apt(["libwpewebkit-1.1-dev", "libwpe-1.0-dev"]),
-                .yum(["wpewebkit-devel", "wpebackend-fdo-devel"])
             ]
         ),
         // Tests using Swift Testing framework
