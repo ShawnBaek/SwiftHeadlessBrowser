@@ -18,11 +18,9 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "2.7.0"),
-        .package(url: "https://github.com/vapor/websocket-kit.git", from: "2.15.0")
+        .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "2.7.0")
     ],
     targets: [
-        // Unified target that re-exports all modules
         .target(
             name: "SwiftHeadlessBrowser",
             dependencies: [
@@ -33,7 +31,6 @@ let package = Package(
                 .swiftLanguageMode(.v6)
             ]
         ),
-        // Core library (HeadlessBrowser class, HTML parsing, BrowserEngine protocol)
         .target(
             name: "HeadlessBrowserCore",
             dependencies: ["SwiftSoup"],
@@ -41,13 +38,9 @@ let package = Package(
                 .swiftLanguageMode(.v6)
             ]
         ),
-        // Remote browser engine (full JavaScript support via Chrome DevTools Protocol)
         .target(
             name: "HeadlessBrowserRemote",
-            dependencies: [
-                "HeadlessBrowserCore",
-                .product(name: "WebSocketKit", package: "websocket-kit")
-            ],
+            dependencies: ["HeadlessBrowserCore"],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
             ]
