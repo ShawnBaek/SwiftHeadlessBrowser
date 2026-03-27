@@ -167,10 +167,6 @@ struct ProtocolMessageTests {
 @Suite("Integration Tests", .serialized)
 struct IntegrationTests {
 
-    private static var shouldSkip: Bool {
-        ProcessInfo.processInfo.environment["SKIP_BROWSER_TESTS"] != nil
-    }
-
     private static func launch(
         waitStrategy: PageLoadStrategy = .load,
         timeout: TimeInterval = 30.0
@@ -205,8 +201,6 @@ struct IntegrationTests {
 
     @Test("Anthropic (Greenhouse) — extract jobs with id and title")
     func anthropicJobs() async throws {
-        guard !Self.shouldSkip else { return }
-
         let (browser, process) = try await Self.launch(timeout: 30.0)
         defer { BrowserProcessLauncher.terminate(process) }
 
@@ -222,8 +216,6 @@ struct IntegrationTests {
 
     @Test("Uber — extract jobs with id and title")
     func uberCareers() async throws {
-        guard !Self.shouldSkip else { return }
-
         let (browser, process) = try await Self.launch(timeout: 30.0)
         defer { BrowserProcessLauncher.terminate(process) }
 

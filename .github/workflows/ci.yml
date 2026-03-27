@@ -7,7 +7,6 @@ on:
     branches: [master, main]
 
 jobs:
-  # macOS Build and Test
   build-macos:
     name: macOS (Swift ${{ matrix.swift }})
     runs-on: macos-latest
@@ -24,35 +23,18 @@ jobs:
         run: swift build -v
 
       - name: Run tests
-        id: test
-        run: |
-          SKIP_BROWSER_TESTS=1 swift test --parallel 2>&1 | tee test-output.txt
+        run: swift test --parallel 2>&1 | tee test-output.txt
 
       - name: Generate test summary
         if: always()
         run: |
           echo "## macOS Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           if grep -q "Test run with" test-output.txt; then
-            TEST_LINE=$(grep "Test run with" test-output.txt | tail -1)
-            TESTS=$(echo "$TEST_LINE" | grep -oE '[0-9]+ tests' | grep -oE '[0-9]+' || echo "0")
-            SUITES=$(echo "$TEST_LINE" | grep -oE '[0-9]+ suites' | grep -oE '[0-9]+' || echo "0")
-            TIME=$(echo "$TEST_LINE" | grep -oE '[0-9.]+ seconds' | grep -oE '[0-9.]+' || echo "0")
-            if echo "$TEST_LINE" | grep -q "passed"; then
-              echo "All tests passed ($TESTS tests, $SUITES suites, ${TIME}s)" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "Some tests failed" >> $GITHUB_STEP_SUMMARY
-            fi
+            grep "Test run with" test-output.txt | tail -1 >> $GITHUB_STEP_SUMMARY
           fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          grep -E 'ANTHROPIC:|UBER:' test-output.txt >> $GITHUB_STEP_SUMMARY || true
 
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-macos
-          path: test-output.txt
-
-  # Linux Build and Test
   build-linux:
     name: Linux (Swift latest)
     runs-on: ubuntu-latest
@@ -61,6 +43,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Chrome
+        run: |
+          apt-get update
+          apt-get install -y wget gnupg2
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
+          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+          apt-get update
+          apt-get install -y google-chrome-stable
+          google-chrome --version
+
       - name: Show Swift version
         run: swift --version
 
@@ -68,35 +60,18 @@ jobs:
         run: swift build -v
 
       - name: Run tests
-        id: test
-        run: |
-          SKIP_BROWSER_TESTS=1 swift test --parallel 2>&1 | tee test-output.txt
+        run: swift test --parallel 2>&1 | tee test-output.txt
 
       - name: Generate test summary
         if: always()
         run: |
           echo "## Linux Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           if grep -q "Test run with" test-output.txt; then
-            TEST_LINE=$(grep "Test run with" test-output.txt | tail -1)
-            TESTS=$(echo "$TEST_LINE" | grep -oE '[0-9]+ tests' | grep -oE '[0-9]+' || echo "0")
-            SUITES=$(echo "$TEST_LINE" | grep -oE '[0-9]+ suites' | grep -oE '[0-9]+' || echo "0")
-            TIME=$(echo "$TEST_LINE" | grep -oE '[0-9.]+ seconds' | grep -oE '[0-9.]+' || echo "0")
-            if echo "$TEST_LINE" | grep -q "passed"; then
-              echo "All tests passed ($TESTS tests, $SUITES suites, ${TIME}s)" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "Some tests failed" >> $GITHUB_STEP_SUMMARY
-            fi
+            grep "Test run with" test-output.txt | tail -1 >> $GITHUB_STEP_SUMMARY
           fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          grep -E 'ANTHROPIC:|UBER:' test-output.txt >> $GITHUB_STEP_SUMMARY || true
 
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-linux
-          path: test-output.txt
-
-  # CI Success Gate
   ci-success:
     name: CI Success
     needs: [build-macos, build-linux]
