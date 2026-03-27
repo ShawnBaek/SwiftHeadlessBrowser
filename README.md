@@ -1,87 +1,81 @@
-# SwiftHeadlessWebKit
+# SwiftHeadlessBrowser
 
-[![CI](https://github.com/ShawnBaek/SwiftHeadlessWebKit/actions/workflows/ci.yml/badge.svg)](https://github.com/ShawnBaek/SwiftHeadlessWebKit/actions/workflows/ci.yml)
-[![Swift 6](https://img.shields.io/badge/Swift-6.2-orange.svg?style=flat)](https://swift.org)
-[![Platform](https://img.shields.io/badge/Platform-iOS%20%7C%20macOS%20%7C%20Linux-blue.svg?style=flat)](https://swift.org)
+[![CI](https://github.com/ShawnBaek/SwiftHeadlessBrowser/actions/workflows/ci.yml/badge.svg)](https://github.com/ShawnBaek/SwiftHeadlessBrowser/actions/workflows/ci.yml)
+[![Swift 6](https://img.shields.io/badge/Swift-6.0+-orange.svg?style=flat)](https://swift.org)
+[![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux-blue.svg?style=flat)](https://swift.org)
 [![License](https://img.shields.io/badge/License-MIT-lightgrey.svg?style=flat)](LICENSE)
 
-A **headless web browser** for Swift that works on **iOS, macOS, and Linux**.
+A **headless web browser** for Swift with **full JavaScript execution** on macOS and Linux.
 
-> Developed by [Shawn Baek](https://github.com/ShawnBaek) using [Spec Kit](https://github.com/github/spec-kit) methodology with [Claude Code](https://claude.ai/claude-code).
-
----
-
-## Highlights
-
-- **Cross-Platform** - Single API works on iOS, macOS, and Linux
-- **JavaScript Execution** - Full client-side rendering on all platforms
-- **Swift 6** - Built with strict concurrency (`async/await`, `Sendable`)
-- **Simple API** - Just `import SwiftHeadlessWebKit` on any platform
+Uses Chrome/Chromium headless via Chrome DevTools Protocol for server-side rendering of JS-heavy websites (React, Next.js, SPAs).
 
 ---
 
 ## Installation
 
-Add to your `Package.swift`:
-
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ShawnBaek/SwiftHeadlessWebKit.git", from: "2.0.0")
+    .package(url: "https://github.com/ShawnBaek/SwiftHeadlessBrowser.git", from: "2.0.0")
 ]
 ```
-
-Add the dependency to your target:
 
 ```swift
 .target(
     name: "YourApp",
-    dependencies: ["SwiftHeadlessWebKit"]
+    dependencies: ["SwiftHeadlessBrowser"]
 )
 ```
 
-That's it! The package automatically uses the right engine for each platform.
+**Requires Chrome/Chromium installed** for JavaScript execution. Without Chrome, HTTP-only mode is available.
 
 ---
 
 ## Quick Start
 
+### With JavaScript (requires Chrome)
+
 ```swift
-import SwiftHeadlessWebKit
+import SwiftHeadlessBrowser
 
-// Create browser
-let browser = WKZombie()
+let (browser, process) = try await HeadlessBrowser.withChrome()
+defer { BrowserProcessLauncher.terminate(process) }
 
-// Fetch and parse a webpage
-let page: HTMLPage = try await browser.open(url: URL(string: "https://example.com")!).execute()
+// Load JS-heavy page — fully rendered
+let page: HTMLPage = try await browser.open(URL(string: "https://example.com")!).execute()
 
-// Find elements using CSS selectors
+// Execute JavaScript
+let title: String = try await browser.execute("document.title").execute()
+
+// Find elements in rendered DOM
 let links = page.findElements(.cssSelector("a.product-link"))
+```
+
+### HTTP-only (no Chrome needed)
+
+```swift
+import SwiftHeadlessBrowser
+
+let browser = HeadlessBrowser()
+let page: HTMLPage = try await browser.open(URL(string: "https://example.com")!).execute()
+let links = page.findElements(.cssSelector("a[href]"))
 ```
 
 ---
 
-## Linux Server Example
-
-SwiftHeadlessWebKit enables web scraping with full JavaScript rendering on Linux servers - perfect for Vapor apps:
+## Page Load Strategies
 
 ```swift
-import Vapor
-import SwiftHeadlessWebKit
+// Wait for load event (default)
+let (browser, process) = try await HeadlessBrowser.withChrome(waitStrategy: .load)
 
-func routes(_ app: Application) throws {
-    app.get("scrape") { req async throws -> String in
-        let browser = WKZombie()
-        let page: HTMLPage = try await browser.open(
-            url: URL(string: "https://example.com")!
-        ).execute()
+// Wait for network idle (good for SPAs)
+let (browser, process) = try await HeadlessBrowser.withChrome(waitStrategy: .networkIdle(idleTime: 0.5))
 
-        let titleResult = page.findElements(.cssSelector("title"))
-        if case .success(let titles) = titleResult, let title = titles.first {
-            return title.text ?? "No title"
-        }
-        return "No title found"
-    }
-}
+// Wait for a specific element
+let (browser, process) = try await HeadlessBrowser.withChrome(waitStrategy: .selector("#content"))
+
+// Wait for JS condition
+let (browser, process) = try await HeadlessBrowser.withChrome(waitStrategy: .jsCondition("window.dataLoaded === true"))
 ```
 
 ---
@@ -97,45 +91,21 @@ func routes(_ app: Application) throws {
 
 ---
 
-## Platform Details
+## Architecture
 
-| Platform | Engine | JavaScript |
-|----------|--------|------------|
-| macOS/iOS | WKWebView | ✅ Full |
-| Linux | WPE WebKit | ✅ Full |
-
----
-
-## Development with Spec Kit
-
-This project uses **Spec Kit** methodology with Claude Code:
-
-```bash
-# Define new features
-/speckit.specify Add JS Rendering support
-
-# Check test cases
-/speckit.specify check test cases for JavaScript rendering
-```
-
-### Guidelines
-- Use `/speckit.specify` before implementing features
-- Follow Swift 6 conventions with strict concurrency
-- Write tests using Swift Testing (`@Test`, `#expect`)
-- Ensure CI passes on all platforms
+| Module | What it does |
+|--------|-------------|
+| `HeadlessBrowserCore` | `HeadlessBrowser` class, HTML parsing (SwiftSoup), `HeadlessEngine` (HTTP-only) |
+| `HeadlessBrowserRemote` | `RemoteBrowserEngine` — full JS via Chrome DevTools Protocol over WebSocket |
 
 ---
 
 ## Credits
 
-- Original [WKZombie](https://github.com/mkoehnke/WKZombie) by [Mathias Köhnke](https://twitter.com/mkoehnke)
-- Modernization by [Shawn Baek](https://github.com/ShawnBaek) with [Claude Code](https://claude.ai/claude-code)
 - HTML parsing by [SwiftSoup](https://github.com/scinfu/SwiftSoup)
+- WebSocket by [websocket-kit](https://github.com/vapor/websocket-kit)
+- Original HTML navigation patterns inspired by [WKZombie](https://github.com/mkoehnke/WKZombie)
 
 ## License
 
 MIT License - See [LICENSE](LICENSE) file.
-
----
-
-**Copyright (c) 2025 Shawn Baek**

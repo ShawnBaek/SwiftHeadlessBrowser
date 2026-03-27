@@ -211,7 +211,11 @@ public struct BrowserProcessLauncher: Sendable {
 
     private static func findAvailablePort() -> Int {
         // Bind to port 0 to let the OS assign an available port
+        #if os(Linux)
+        let socketFD = socket(AF_INET, Int32(SOCK_STREAM.rawValue), 0)
+        #else
         let socketFD = socket(AF_INET, SOCK_STREAM, 0)
+        #endif
         guard socketFD >= 0 else {
             return Int.random(in: 10000...60000)
         }

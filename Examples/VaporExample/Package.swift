@@ -6,14 +6,14 @@ let package = Package(
     name: "VaporExample",
     dependencies: [
         .package(url: "https://github.com/vapor/vapor.git", from: "4.92.0"),
-        .package(path: "../..")  // SwiftHeadlessWebKit
+        .package(path: "../..")  // SwiftHeadlessBrowser
     ],
     targets: [
         .executableTarget(
             name: "VaporExample",
             dependencies: [
                 .product(name: "Vapor", package: "vapor"),
-                .product(name: "SwiftHeadlessWebKit", package: "SwiftHeadlessWebKit")
+                .product(name: "SwiftHeadlessBrowser", package: "SwiftHeadlessBrowser")
             ],
             swiftSettings: [
                 .swiftLanguageMode(.v6)

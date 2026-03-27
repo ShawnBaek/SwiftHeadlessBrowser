@@ -3,12 +3,12 @@
 //
 // Copyright (c) 2025 Shawn Baek
 //
-// Vapor + SwiftHeadlessWebKit Example
+// Vapor + SwiftHeadlessBrowser Example
 // Demonstrates web scraping on Linux servers using Vapor
 //
 
 import Vapor
-import SwiftHeadlessWebKit
+import SwiftHeadlessBrowser
 
 // MARK: - Job Model
 
@@ -31,7 +31,7 @@ func routes(_ app: Application) throws {
 
     // Health check
     app.get { req async -> String in
-        "SwiftHeadlessWebKit + Vapor is running!"
+        "SwiftHeadlessBrowser + Vapor is running!"
     }
 
     // Scrape Uber careers page
@@ -50,7 +50,7 @@ func routes(_ app: Application) throws {
             userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             timeoutInSeconds: 30.0
         )
-        let browser = WKZombie(name: "VaporScraper", engine: engine)
+        let browser = HeadlessBrowser(name: "VaporScraper", engine: engine)
 
         let careersURL = URL(string: "https://www.uber.com/us/en/careers/list/")!
 
@@ -101,10 +101,10 @@ func routes(_ app: Application) throws {
         #endif
 
         let engine = HeadlessEngine(
-            userAgent: "Mozilla/5.0 (compatible; SwiftHeadlessWebKit/1.0)",
+            userAgent: "Mozilla/5.0 (compatible; SwiftHeadlessBrowser/1.0)",
             timeoutInSeconds: 30.0
         )
-        let browser = WKZombie(name: "VaporScraper", engine: engine)
+        let browser = HeadlessBrowser(name: "VaporScraper", engine: engine)
 
         let page: HTMLPage = try await browser.open(url).execute()
         let html = page.data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
