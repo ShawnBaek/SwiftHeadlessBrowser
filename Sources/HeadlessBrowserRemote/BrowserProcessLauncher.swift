@@ -59,6 +59,7 @@ public struct BrowserProcessLauncher: Sendable {
             "--disable-default-apps",
             "--disable-sync",
             "--disable-translate",
+            "--disable-blink-features=AutomationControlled",
             "--metrics-recording-only",
             "--no-first-run",
             "--remote-debugging-port=\(actualPort)",

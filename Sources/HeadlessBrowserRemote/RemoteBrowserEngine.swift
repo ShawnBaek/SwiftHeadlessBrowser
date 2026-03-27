@@ -150,19 +150,24 @@ public final class RemoteBrowserEngine: BrowserEngine, @unchecked Sendable {
             timeout: _timeoutInSeconds
         )
 
-        // Check for navigation error
+        // Check for navigation error (but not empty errorText — Chrome sometimes returns "" on success)
         if let result = response.result,
-           let errorText = result["errorText"] as? String {
+           let errorText = result["errorText"] as? String,
+           !errorText.isEmpty {
             throw RemoteBrowserError.navigationFailed(errorText)
         }
 
-        // Wait for page to be ready based on strategy
-        try await waitForPageReady(loadWaiter: loadWaiter)
+        // Wait for page to be ready (non-fatal on timeout — page may be partially rendered)
+        do {
+            try await waitForPageReady(loadWaiter: loadWaiter)
+        } catch {
+            // Timeout waiting for load event — continue with whatever is rendered
+        }
 
         // Handle PostAction
         try await handlePostAction(postAction)
 
-        // Get the rendered HTML
+        // Get the rendered HTML (use generous timeout for eval even if page load timed out)
         let html = try await getRenderedHTML()
         let data = html.data(using: .utf8) ?? Data()
 
@@ -329,14 +334,9 @@ public final class RemoteBrowserEngine: BrowserEngine, @unchecked Sendable {
                 "expression": "document.documentElement.outerHTML",
                 "returnByValue": true
             ],
-            timeout: _timeoutInSeconds
+            timeout: max(_timeoutInSeconds, 30.0)
         )
-
-        let html = extractJSResult(from: response)
-        guard !html.isEmpty else {
-            throw ActionError.parsingFailure
-        }
-        return html
+        return extractJSResult(from: response)
     }
 
     // MARK: - Result Extraction

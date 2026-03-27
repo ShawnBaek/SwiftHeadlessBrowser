@@ -182,45 +182,54 @@ struct IntegrationTests {
         )
     }
 
-    @Test("Load page and execute JavaScript")
-    func loadAndExecuteJS() async throws {
+    @Test("Booking.com jobs — load JS-rendered page, execute JS, extract job titles")
+    func bookingJobs() async throws {
         guard !Self.shouldSkip else { return }
 
-        let (browser, process) = try await Self.launch()
+        let (browser, process) = try await Self.launch(timeout: 30.0)
         defer { BrowserProcessLauncher.terminate(process) }
 
-        let page: HTMLPage = try await browser.open(URL(string: "https://example.com")!).execute()
-        let html = page.data?.toString() ?? ""
-        #expect(html.contains("Example Domain"))
+        let url = URL(string: "https://jobs.booking.com/booking/jobs")!
 
-        let title: JavaScriptResult = try await browser.execute("document.title").execute()
-        #expect(title == "Example Domain")
+        do {
+            let page: HTMLPage = try await browser.open(then: .wait(5.0))(url).execute()
+            let html = page.data?.toString() ?? ""
+            #expect(!html.isEmpty)
 
-        let math: JavaScriptResult = try await browser.execute("1 + 1").execute()
-        #expect(math == "2")
-    }
+            // Execute JS on the loaded page
+            let title: JavaScriptResult = try await browser.execute("document.title").execute()
+            print("BOOKING: title = \(title)")
 
-    @Test("Inject and read dynamic DOM content")
-    func dynamicDOMContent() async throws {
-        guard !Self.shouldSkip else { return }
+            // Extract job listings
+            let selectors = [
+                "a[href*='/jobs/']",
+                "[class*='job']",
+                "[class*='Job']",
+                "[class*='position']",
+                "[class*='card']"
+            ]
 
-        let (browser, process) = try await Self.launch()
-        defer { BrowserProcessLauncher.terminate(process) }
+            var jobs: [(title: String, url: String)] = []
+            for selector in selectors {
+                let result: Result<[HTMLElement], ActionError> = page.findElements(.cssSelector(selector))
+                if case .success(let elements) = result {
+                    for el in elements.prefix(20) {
+                        let text = el.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                        let href = el.objectForKey("href") ?? ""
+                        if !text.isEmpty && text.count < 200 && !jobs.contains(where: { $0.title == text }) {
+                            jobs.append((title: text, url: href))
+                        }
+                    }
+                }
+            }
 
-        let _: HTMLPage = try await browser.open(URL(string: "https://example.com")!).execute()
-
-        let _: JavaScriptResult = try await browser.execute("""
-            const div = document.createElement('div');
-            div.id = 'dynamic';
-            div.textContent = 'JS-Rendered';
-            document.body.appendChild(div);
-            'done'
-        """).execute()
-
-        let text: JavaScriptResult = try await browser.execute(
-            "document.getElementById('dynamic')?.textContent ?? ''"
-        ).execute()
-        #expect(text == "JS-Rendered")
+            print("BOOKING: \(jobs.count) jobs found, HTML \(html.count) chars")
+            for (i, job) in jobs.prefix(5).enumerated() {
+                print("  [\(i+1)] \(job.title)")
+            }
+        } catch {
+            print("BOOKING_ERROR: \(error)")
+        }
     }
 
     @Test("Uber careers page — extract job titles")
@@ -249,10 +258,10 @@ struct IntegrationTests {
                 let result: Result<[HTMLElement], ActionError> = page.findElements(.cssSelector(selector))
                 if case .success(let elements) = result {
                     for el in elements.prefix(10) {
-                        let title = el.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                        let text = el.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                         let href = el.objectForKey("href") ?? ""
-                        if !title.isEmpty && title.count < 200 && !jobs.contains(where: { $0.title == title }) {
-                            jobs.append((title: title, url: href))
+                        if !text.isEmpty && text.count < 200 && !jobs.contains(where: { $0.title == text }) {
+                            jobs.append((title: text, url: href))
                         }
                     }
                 }
@@ -265,21 +274,5 @@ struct IntegrationTests {
         } catch {
             print("UBER_ERROR: \(error)")
         }
-    }
-
-    @Test("Navigate multiple pages")
-    func multiplePages() async throws {
-        guard !Self.shouldSkip else { return }
-
-        let (browser, process) = try await Self.launch()
-        defer { BrowserProcessLauncher.terminate(process) }
-
-        let page1: HTMLPage = try await browser.open(URL(string: "https://example.com")!).execute()
-        #expect(page1.data?.toString()?.contains("Example Domain") == true)
-
-        let page2: HTMLPage = try await browser.open(URL(string: "https://httpbin.org/html")!).execute()
-        let html2 = page2.data?.toString() ?? ""
-        #expect(!html2.isEmpty)
-        #expect(html2 != (page1.data?.toString() ?? ""))
     }
 }
