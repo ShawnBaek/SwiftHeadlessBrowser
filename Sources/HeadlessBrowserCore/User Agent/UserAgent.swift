@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum UserAgent: String, CaseIterable {
+public enum UserAgent: String, CaseIterable, Sendable {
 
     // macOS Safari
     case safariMac = "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6_1) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15"

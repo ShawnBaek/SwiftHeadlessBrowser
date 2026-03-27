@@ -1,5 +1,5 @@
 //
-// SwiftHeadlessWebKit.swift
+// PageLoadStrategy.swift
 //
 // Copyright (c) 2025 Shawn Baek
 //
@@ -21,39 +21,25 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-/// SwiftHeadlessWebKit - A cross-platform headless web browser for Swift.
-///
-/// This unified module automatically provides the correct implementation
-/// for each platform:
-/// - **macOS/iOS**: Uses WKWebView for full JavaScript support
-/// - **Linux**: Uses HeadlessEngine for HTTP-based scraping
-///
-/// ## Quick Start
-///
-/// ```swift
-/// import SwiftHeadlessWebKit
-///
-/// let browser = WKZombie()
-/// let page: HTMLPage = try await browser.open(url: myURL).execute()
-/// let elements = page.findElements(.cssSelector("a.link"))
-/// ```
-///
-/// ## Custom Configuration
-///
-/// ```swift
-/// let engine = HeadlessEngine(
-///     userAgent: "MyBot/1.0",
-///     timeoutInSeconds: 30.0
-/// )
-/// let browser = WKZombie(name: "MyBot", engine: engine)
-/// ```
+import Foundation
 
-// Re-export core module (available on all platforms)
-@_exported import WKZombie
+/// Strategy for determining when a page has finished loading.
+public enum PageLoadStrategy: Sendable {
+    /// Wait for the `Page.loadEventFired` event (window.onload).
+    case load
 
-// Re-export platform-specific modules
-#if os(macOS) || os(iOS) || os(tvOS) || os(watchOS) || os(visionOS)
-@_exported import WKZombieApple
-#elseif os(Linux)
-@_exported import WKZombieLinux
-#endif
+    /// Wait for `Page.domContentEventFired` (DOMContentLoaded).
+    case domContentLoaded
+
+    /// Wait until no network requests are in-flight for the specified duration.
+    case networkIdle(idleTime: TimeInterval)
+
+    /// Wait for a CSS selector to appear in the DOM.
+    case selector(String)
+
+    /// Wait for a JavaScript expression to return a truthy value.
+    case jsCondition(String)
+
+    /// Wait for both load event AND network idle.
+    case loadAndNetworkIdle(idleTime: TimeInterval)
+}

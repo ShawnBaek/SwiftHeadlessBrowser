@@ -23,8 +23,8 @@
 
 import Foundation
 
-/// Error types for WKZombie actions
-public enum ActionError: Error, Sendable, CustomDebugStringConvertible {
+/// Error types for HeadlessBrowser actions
+public enum ActionError: Error, Sendable, Equatable, CustomDebugStringConvertible {
     case networkRequestFailure
     case notFound
     case parsingFailure
@@ -33,6 +33,10 @@ public enum ActionError: Error, Sendable, CustomDebugStringConvertible {
     case notSupported
     case timeout
     case invalidURL
+    case remoteBrowserConnectionFailed
+    case remoteBrowserLaunchFailed
+    case remoteBrowserProtocolError(String)
+    case remoteBrowserDisconnected
 
     public struct StatusCodes: Sendable {
         public static let success: Int = 200
@@ -49,6 +53,10 @@ public enum ActionError: Error, Sendable, CustomDebugStringConvertible {
         case .notSupported: return "Operation Not Supported on This Platform"
         case .timeout: return "Operation Timed Out"
         case .invalidURL: return "Invalid URL"
+        case .remoteBrowserConnectionFailed: return "Remote Browser Connection Failed"
+        case .remoteBrowserLaunchFailed: return "Remote Browser Launch Failed"
+        case .remoteBrowserProtocolError(let msg): return "Remote Browser Protocol Error: \(msg)"
+        case .remoteBrowserDisconnected: return "Remote Browser Disconnected"
         }
     }
 }

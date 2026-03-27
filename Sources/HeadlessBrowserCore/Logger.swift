@@ -1,7 +1,7 @@
 //
-// WKZombieAppleTests.swift
+// Logger.swift
 //
-// Copyright (c) 2015 Mathias Koehnke (http://www.mathiaskoehnke.de)
+// Copyright (c) 2016 Mathias Koehnke (http://www.mathiaskoehnke.de)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -21,40 +21,20 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-#if canImport(WebKit)
-import Testing
 import Foundation
-@testable import WKZombie
-@testable import WKZombieApple
 
-@Suite("WebKit Engine Tests")
-struct WebKitEngineTests {
+/// HeadlessBrowser Console Logger
+public final class Logger: Sendable {
 
-    @Test("WebKit engine can be created")
-    @MainActor
-    func createWebKitEngine() async {
-        let engine = WebKitEngine(userAgent: .safariMac)
-        #expect(engine.timeoutInSeconds == 30.0)
-    }
+    nonisolated(unsafe) public static var enabled: Bool = true
 
-    @Test("WebKit engine supports JavaScript")
-    @MainActor
-    func webkitSupportsJS() async {
-        let engine = WebKitEngine(userAgent: .safariMac)
-        // Just verify it doesn't throw .notSupported like HeadlessEngine
-        // Actual JS execution requires a loaded page
+    public static func log(_ message: String, lineBreak: Bool = true) {
+        if enabled {
+            if lineBreak {
+                print("\(message)")
+            } else {
+                print("\(message)", terminator: "")
+            }
+        }
     }
 }
-
-@Suite("WKZombieApple Extension Tests")
-struct WKZombieAppleExtensionTests {
-
-    @Test("WKZombie with WebKit engine can be created")
-    @MainActor
-    func createWKZombieWithWebKit() async {
-        let zombie = WKZombie(name: "TestZombie", processPool: nil, userAgent: .safariMac)
-        #expect(zombie.name == "TestZombie")
-    }
-}
-
-#endif // canImport(WebKit)

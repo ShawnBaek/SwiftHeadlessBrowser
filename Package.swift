@@ -3,7 +3,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "SwiftHeadlessWebKit",
+    name: "SwiftHeadlessBrowser",
     platforms: [
         .macOS(.v12),
         .iOS(.v15),
@@ -12,79 +12,42 @@ let package = Package(
         .visionOS(.v1)
     ],
     products: [
-        // Unified product - automatically uses correct engine per platform
         .library(
-            name: "SwiftHeadlessWebKit",
-            targets: ["SwiftHeadlessWebKit"]
+            name: "SwiftHeadlessBrowser",
+            targets: ["SwiftHeadlessBrowser"]
         )
     ],
     dependencies: [
         .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "2.7.0")
     ],
     targets: [
-        // Unified target that re-exports platform-specific modules
         .target(
-            name: "SwiftHeadlessWebKit",
+            name: "SwiftHeadlessBrowser",
             dependencies: [
-                "WKZombie",
-                .target(name: "WKZombieApple", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS])),
-                .target(name: "WKZombieLinux", condition: .when(platforms: [.linux]))
+                "HeadlessBrowserCore",
+                "HeadlessBrowserRemote"
             ],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
             ]
         ),
-        // Core cross-platform library
         .target(
-            name: "WKZombie",
+            name: "HeadlessBrowserCore",
             dependencies: ["SwiftSoup"],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
             ]
         ),
-        // Apple-specific extensions (WebKit rendering)
         .target(
-            name: "WKZombieApple",
-            dependencies: ["WKZombie"],
+            name: "HeadlessBrowserRemote",
+            dependencies: ["HeadlessBrowserCore"],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
             ]
         ),
-        // Linux-specific extensions
-        .target(
-            name: "WKZombieLinux",
-            dependencies: [
-                "WKZombie",
-                .target(name: "CWebKit", condition: .when(platforms: [.linux]))
-            ],
-            swiftSettings: [
-                .swiftLanguageMode(.v6)
-            ]
-        ),
-        // System library for WebKit on Linux
-        .systemLibrary(
-            name: "CWebKit",
-            path: "Sources/CWebKit",
-            pkgConfig: "wpe-webkit-1.1",
-            providers: [
-                .apt(["libwpewebkit-1.1-dev", "libwpe-1.0-dev"]),
-                .yum(["wpewebkit-devel", "wpebackend-fdo-devel"])
-            ]
-        ),
-        // Tests using Swift Testing framework
         .testTarget(
-            name: "WKZombieTests",
-            dependencies: ["WKZombie"],
-            resources: [
-                .copy("Resources")
-            ]
-        ),
-        .testTarget(
-            name: "WKZombieAppleTests",
-            dependencies: ["WKZombieApple"],
-            resources: [
-                .copy("Resources")
-            ]
+            name: "SwiftHeadlessBrowserTests",
+            dependencies: ["HeadlessBrowserCore", "HeadlessBrowserRemote"]
         )
     ]
 )

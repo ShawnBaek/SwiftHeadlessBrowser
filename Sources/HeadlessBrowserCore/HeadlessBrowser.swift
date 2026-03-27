@@ -1,5 +1,5 @@
 //
-// WKZombie.swift
+// HeadlessBrowser.swift
 //
 // Copyright (c) 2015 Mathias Koehnke (http://www.mathiaskoehnke.de)
 //
@@ -55,78 +55,16 @@ public protocol BrowserEngine: Sendable {
     var timeoutInSeconds: TimeInterval { get }
 }
 
-// MARK: - Headless Engine (Cross-Platform)
+// MARK: - HeadlessBrowser Main Class
 
-/// A headless browser engine that works on all platforms including Linux.
-/// This engine fetches HTML via HTTP but cannot execute JavaScript.
-public final class HeadlessEngine: BrowserEngine, @unchecked Sendable {
-
-    private let fetcher: ContentFetcher
-    private let _userAgent: UserAgent
-    private let _timeoutInSeconds: TimeInterval
-    private var currentData: Data?
-    private var currentURL: URL?
-
-    public var userAgent: UserAgent { _userAgent }
-    public var timeoutInSeconds: TimeInterval { _timeoutInSeconds }
-
-    public init(userAgent: UserAgent, timeoutInSeconds: TimeInterval = 30.0) {
-        self._userAgent = userAgent
-        self._timeoutInSeconds = timeoutInSeconds
-
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = timeoutInSeconds
-        config.httpAdditionalHeaders = ["User-Agent": userAgent.rawValue]
-        let session = URLSession(configuration: config)
-        self.fetcher = ContentFetcher(session: session)
-    }
-
-    public func openURL(_ url: URL, postAction: PostAction = .none) async throws -> (Data, URL?) {
-        let (data, response) = try await fetcher.fetch(url)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw ActionError.networkRequestFailure
-        }
-
-        let successRange = 200..<300
-        guard successRange.contains(httpResponse.statusCode) else {
-            throw ActionError.networkRequestFailure
-        }
-
-        self.currentData = data
-        self.currentURL = url
-
-        // Handle post action (wait)
-        if case .wait(let time) = postAction {
-            try await Task.sleep(nanoseconds: UInt64(time * 1_000_000_000))
-        }
-
-        return (data, url)
-    }
-
-    public func execute(_ script: String) async throws -> String {
-        // JavaScript execution is not supported in headless mode on non-Apple platforms
-        throw ActionError.notSupported
-    }
-
-    public func executeAndLoad(_ script: String, postAction: PostAction) async throws -> (Data, URL?) {
-        // JavaScript execution is not supported in headless mode
-        throw ActionError.notSupported
-    }
-
-    public func currentContent() async throws -> (Data, URL?) {
-        guard let data = currentData else {
-            throw ActionError.notFound
-        }
-        return (data, currentURL)
-    }
-}
-
-// MARK: - WKZombie Main Class
-
-/// WKZombie is a Swift framework for iOS/OSX/Linux to navigate within websites
-/// and collect data without the need of User Interface or API.
-open class WKZombie: @unchecked Sendable {
+/// A headless browser for server-side web scraping with full JavaScript support.
+///
+/// Create instances using the factory methods:
+/// ```swift
+/// let (browser, process) = try await HeadlessBrowser.withChrome()
+/// defer { BrowserProcessLauncher.terminate(process) }
+/// ```
+open class HeadlessBrowser: @unchecked Sendable {
 
     // MARK: - Properties
 
@@ -149,21 +87,16 @@ open class WKZombie: @unchecked Sendable {
         return engine.userAgent.rawValue
     }
 
-    // MARK: - Shared Instance
-
-    /// Returns the shared WKZombie instance.
-    public static let sharedInstance = WKZombie()
-
     // MARK: - Initialization
 
-    /// Creates a new WKZombie instance.
+    /// Creates a new HeadlessBrowser instance with a browser engine.
     ///
     /// - Parameters:
     ///   - name: An optional name/identifier for this instance.
-    ///   - engine: The browser engine to use. Defaults to HeadlessEngine.
-    public init(name: String? = nil, engine: BrowserEngine? = nil) {
-        self.name = name ?? "WKZombie"
-        self.engine = engine ?? HeadlessEngine(userAgent: engine?.userAgent ?? .safariMac)
+    ///   - engine: The browser engine to use (e.g., RemoteBrowserEngine).
+    public init(name: String? = nil, engine: BrowserEngine) {
+        self.name = name ?? "HeadlessBrowser"
+        self.engine = engine
         self._fetcher = ContentFetcher()
     }
 
@@ -184,11 +117,11 @@ open class WKZombie: @unchecked Sendable {
 
 // MARK: - Get Page
 
-public extension WKZombie {
+public extension HeadlessBrowser {
     /// Opens a URL and returns the page.
     ///
     /// - Parameter url: An URL referencing a HTML or JSON page.
-    /// - Returns: The WKZombie Action.
+    /// - Returns: The HeadlessBrowser Action.
     func open<T: Page>(_ url: URL) -> Action<T> {
         return open(then: .none)(url)
     }
@@ -196,7 +129,7 @@ public extension WKZombie {
     /// Opens a URL and returns the page with a post action.
     ///
     /// - Parameter postAction: A wait/validation action that will be performed after the page has finished loading.
-    /// - Returns: A function that takes a URL and returns the WKZombie Action.
+    /// - Returns: A function that takes a URL and returns the HeadlessBrowser Action.
     func open<T: Page>(then postAction: PostAction) -> @Sendable (_ url: URL) -> Action<T> {
         return { [self] (url: URL) -> Action<T> in
             return Action(operation: { completion in
@@ -220,7 +153,7 @@ public extension WKZombie {
 
     /// Returns the current page.
     ///
-    /// - Returns: The WKZombie Action.
+    /// - Returns: The HeadlessBrowser Action.
     func inspect<T: Page>() -> Action<T> {
         return Action(operation: { [self] completion in
             Task {
@@ -243,11 +176,11 @@ public extension WKZombie {
 
 // MARK: - Find Methods
 
-public extension WKZombie {
+public extension HeadlessBrowser {
     /// Searches a page and returns all elements matching the generic HTML element type.
     ///
     /// - Parameter searchType: Key/Value Pairs.
-    /// - Returns: A function that takes a page and returns the WKZombie Action.
+    /// - Returns: A function that takes a page and returns the HeadlessBrowser Action.
     func getAll<T: HTMLElement>(by searchType: SearchType<T>) -> @Sendable (_ page: HTMLPage) -> Action<[T]> {
         return { (page: HTMLPage) -> Action<[T]> in
             let elements: Result<[T], ActionError> = page.findElements(searchType)
@@ -258,7 +191,7 @@ public extension WKZombie {
     /// Searches a page and returns the first element matching the generic HTML element type.
     ///
     /// - Parameter searchType: Key/Value Pairs.
-    /// - Returns: A function that takes a page and returns the WKZombie Action.
+    /// - Returns: A function that takes a page and returns the HeadlessBrowser Action.
     func get<T: HTMLElement>(by searchType: SearchType<T>) -> @Sendable (_ page: HTMLPage) -> Action<T> {
         return { (page: HTMLPage) -> Action<T> in
             let elements: Result<[T], ActionError> = page.findElements(searchType)
@@ -269,11 +202,11 @@ public extension WKZombie {
 
 // MARK: - JavaScript Methods
 
-public extension WKZombie {
+public extension HeadlessBrowser {
     /// Executes a JavaScript string.
     ///
     /// - Parameter script: A JavaScript string.
-    /// - Returns: The WKZombie Action.
+    /// - Returns: The HeadlessBrowser Action.
     func execute(_ script: JavaScript) -> Action<JavaScriptResult> {
         return Action(operation: { [self] completion in
             Task {
@@ -293,7 +226,7 @@ public extension WKZombie {
     /// Executes a JavaScript string on the given page.
     ///
     /// - Parameter script: A JavaScript string.
-    /// - Returns: A function that takes a page and returns the WKZombie Action.
+    /// - Returns: A function that takes a page and returns the HeadlessBrowser Action.
     func execute<T: HTMLPage>(_ script: JavaScript) -> @Sendable (_ page: T) -> Action<JavaScriptResult> {
         return { [self] (_: T) -> Action<JavaScriptResult> in
             return self.execute(script)
@@ -303,11 +236,11 @@ public extension WKZombie {
 
 // MARK: - Fetch Actions
 
-public extension WKZombie {
+public extension HeadlessBrowser {
     /// Downloads the linked data of the passed HTMLFetchable object.
     ///
     /// - Parameter fetchable: A HTMLElement that implements the HTMLFetchable protocol.
-    /// - Returns: The WKZombie Action.
+    /// - Returns: The HeadlessBrowser Action.
     func fetch<T: HTMLElement & HTMLFetchable>(_ fetchable: T) -> Action<T> {
         return Action(operation: { [self] completion in
             guard let fetchURL = fetchable.fetchURL else {
@@ -332,11 +265,11 @@ public extension WKZombie {
 
 // MARK: - Transform Actions
 
-public extension WKZombie {
+public extension HeadlessBrowser {
     /// Transforms a HTMLElement into another type using the specified function.
     ///
     /// - Parameter f: The function that takes a certain HTMLElement as parameter and transforms it.
-    /// - Returns: A function that takes an object and returns the WKZombie Action.
+    /// - Returns: A function that takes an object and returns the HeadlessBrowser Action.
     func map<T: Sendable, A: Sendable>(_ f: @escaping @Sendable (T) -> A) -> @Sendable (_ object: T) -> Action<A> {
         return { (object: T) -> Action<A> in
             return Action(result: resultFromOptional(f(object), error: .notFound))
@@ -356,7 +289,7 @@ public extension WKZombie {
 
 // MARK: - Advanced Actions
 
-public extension WKZombie {
+public extension HeadlessBrowser {
     /// Executes the specified action until a condition is met.
     ///
     /// - Parameters:
@@ -382,7 +315,7 @@ public extension WKZombie {
 
 // MARK: - JSON Actions
 
-public extension WKZombie {
+public extension HeadlessBrowser {
     /// Parses Data and creates a JSON object.
     ///
     /// - Parameter data: A Data object.
@@ -410,8 +343,8 @@ public extension WKZombie {
 
 // MARK: - Debug Methods
 
-public extension WKZombie {
-    /// Prints the current state of the WKZombie browser to the console.
+public extension HeadlessBrowser {
+    /// Prints the current state of the HeadlessBrowser to the console.
     func dump() {
         Task {
             do {

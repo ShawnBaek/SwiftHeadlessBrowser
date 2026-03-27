@@ -1,7 +1,7 @@
 //
-// Logger.swift
+// SwiftHeadlessBrowser.swift
 //
-// Copyright (c) 2016 Mathias Koehnke (http://www.mathiaskoehnke.de)
+// Copyright (c) 2025 Shawn Baek
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -21,20 +21,19 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-import Foundation
+/// SwiftHeadlessBrowser - A headless web browser for Swift with full JavaScript execution.
+///
+/// Uses Chrome/Chromium headless via Chrome DevTools Protocol.
+///
+/// ```swift
+/// import SwiftHeadlessBrowser
+///
+/// let (browser, process) = try await HeadlessBrowser.withChrome()
+/// defer { BrowserProcessLauncher.terminate(process) }
+///
+/// let page: HTMLPage = try await browser.open(myURL).execute()
+/// let title: String = try await browser.execute("document.title").execute()
+/// ```
 
-/// WKZombie Console Logger
-public final class Logger: Sendable {
-
-    nonisolated(unsafe) public static var enabled: Bool = true
-
-    public static func log(_ message: String, lineBreak: Bool = true) {
-        if enabled {
-            if lineBreak {
-                print("\(message)")
-            } else {
-                print("\(message)", terminator: "")
-            }
-        }
-    }
-}
+@_exported import HeadlessBrowserCore
+@_exported import HeadlessBrowserRemote

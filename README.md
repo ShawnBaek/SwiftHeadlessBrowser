@@ -1,141 +1,124 @@
-# SwiftHeadlessWebKit
+# SwiftHeadlessBrowser
 
-[![CI](https://github.com/ShawnBaek/SwiftHeadlessWebKit/actions/workflows/ci.yml/badge.svg)](https://github.com/ShawnBaek/SwiftHeadlessWebKit/actions/workflows/ci.yml)
-[![Swift 6](https://img.shields.io/badge/Swift-6.2-orange.svg?style=flat)](https://swift.org)
-[![Platform](https://img.shields.io/badge/Platform-iOS%20%7C%20macOS%20%7C%20Linux-blue.svg?style=flat)](https://swift.org)
+[![CI](https://github.com/ShawnBaek/SwiftHeadlessBrowser/actions/workflows/ci.yml/badge.svg)](https://github.com/ShawnBaek/SwiftHeadlessBrowser/actions/workflows/ci.yml)
+[![Swift 6](https://img.shields.io/badge/Swift-6.0+-orange.svg?style=flat)](https://swift.org)
+[![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux-blue.svg?style=flat)](https://swift.org)
 [![License](https://img.shields.io/badge/License-MIT-lightgrey.svg?style=flat)](LICENSE)
 
-A **headless web browser** for Swift that works on **iOS, macOS, and Linux**.
+A **headless browser** for Swift with **full JavaScript execution** on macOS and Linux.
 
-> Developed by [Shawn Baek](https://github.com/ShawnBaek) using [Spec Kit](https://github.com/github/spec-kit) methodology with [Claude Code](https://claude.ai/claude-code).
+Controls Chrome/Chromium headless via [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/) to render JS-heavy websites (React, Next.js, SPAs) and extract structured data.
 
----
+## Verified Sites
 
-## Highlights
-
-- **Cross-Platform** - Single API works on iOS, macOS, and Linux
-- **JavaScript Execution** - Full client-side rendering on all platforms
-- **Swift 6** - Built with strict concurrency (`async/await`, `Sendable`)
-- **Simple API** - Just `import SwiftHeadlessWebKit` on any platform
+```
+ANTHROPIC: id=5023394008 title=Anthropic AI Safety Fellow
+ANTHROPIC: id=5062955008 title=Applied Safety Research Engineer, Safeguards
+UBER:      id=152401     title=Sr Staff Engineer
+UBER:      id=155529     title=Engineering Manager, Competitive Data Platform
+```
 
 ---
 
 ## Installation
 
-Add to your `Package.swift`:
-
 ```swift
 dependencies: [
-    .package(url: "https://github.com/ShawnBaek/SwiftHeadlessWebKit.git", from: "2.0.0")
+    .package(url: "https://github.com/ShawnBaek/SwiftHeadlessBrowser.git", from: "2.0.0")
 ]
 ```
 
-Add the dependency to your target:
-
 ```swift
-.target(
-    name: "YourApp",
-    dependencies: ["SwiftHeadlessWebKit"]
-)
+.target(name: "YourApp", dependencies: ["SwiftHeadlessBrowser"])
 ```
 
-That's it! The package automatically uses the right engine for each platform.
+**Requires Chrome/Chromium installed** on the machine.
 
 ---
 
-## Quick Start
+## Usage
 
 ```swift
-import SwiftHeadlessWebKit
+import SwiftHeadlessBrowser
 
-// Create browser
-let browser = WKZombie()
+// Launch Chrome headless and connect
+let (browser, process) = try await HeadlessBrowser.withChrome()
+defer { BrowserProcessLauncher.terminate(process) }
 
-// Fetch and parse a webpage
-let page: HTMLPage = try await browser.open(url: URL(string: "https://example.com")!).execute()
+// Load a JS-rendered page
+let page: HTMLPage = try await browser.open(
+    URL(string: "https://boards.greenhouse.io/anthropic")!
+).execute()
 
-// Find elements using CSS selectors
-let links = page.findElements(.cssSelector("a.product-link"))
-```
-
----
-
-## Linux Server Example
-
-SwiftHeadlessWebKit enables web scraping with full JavaScript rendering on Linux servers - perfect for Vapor apps:
-
-```swift
-import Vapor
-import SwiftHeadlessWebKit
-
-func routes(_ app: Application) throws {
-    app.get("scrape") { req async throws -> String in
-        let browser = WKZombie()
-        let page: HTMLPage = try await browser.open(
-            url: URL(string: "https://example.com")!
-        ).execute()
-
-        let titleResult = page.findElements(.cssSelector("title"))
-        if case .success(let titles) = titleResult, let title = titles.first {
-            return title.text ?? "No title"
-        }
-        return "No title found"
+// Extract job listings
+let links: Result<[HTMLLink], ActionError> = page.findElements(.cssSelector("a[href*='/jobs/']"))
+if case .success(let elements) = links {
+    for el in elements {
+        let id = el.href?.split(separator: "/").last ?? ""
+        let title = el.text ?? ""
+        print("id=\(id) title=\(title)")
     }
 }
+
+// Execute JavaScript directly
+let title: String = try await browser.execute("document.title").execute()
+```
+
+---
+
+## Page Load Strategies
+
+```swift
+// Wait for load event (default)
+HeadlessBrowser.withChrome(waitStrategy: .load)
+
+// Wait for network idle (good for SPAs)
+HeadlessBrowser.withChrome(waitStrategy: .networkIdle(idleTime: 0.5))
+
+// Wait for a CSS selector to appear
+HeadlessBrowser.withChrome(waitStrategy: .selector("#job-list"))
+
+// Wait for a JS condition
+HeadlessBrowser.withChrome(waitStrategy: .jsCondition("window.dataLoaded === true"))
 ```
 
 ---
 
 ## CSS Selectors
 
-| Selector | Example | Description |
-|----------|---------|-------------|
-| `.id("value")` | `.id("header")` | Find by ID |
-| `.class("value")` | `.class("btn")` | Find by class |
-| `.name("value")` | `.name("email")` | Find by name attribute |
-| `.cssSelector("query")` | `.cssSelector("div.card > a")` | Custom CSS selector |
+| Selector | Example |
+|----------|---------|
+| `.id("value")` | `.id("header")` |
+| `.class("value")` | `.class("job-card")` |
+| `.name("value")` | `.name("email")` |
+| `.cssSelector("query")` | `.cssSelector("a[href*='/jobs/']")` |
+| `.attribute("key", "val")` | `.attribute("data-id", "123")` |
+| `.contains("key", "val")` | `.contains("href", "/careers/")` |
 
 ---
 
-## Platform Details
+## Architecture
 
-| Platform | Engine | JavaScript |
-|----------|--------|------------|
-| macOS/iOS | WKWebView | ✅ Full |
-| Linux | WPE WebKit | ✅ Full |
-
----
-
-## Development with Spec Kit
-
-This project uses **Spec Kit** methodology with Claude Code:
-
-```bash
-# Define new features
-/speckit.specify Add JS Rendering support
-
-# Check test cases
-/speckit.specify check test cases for JavaScript rendering
+```
+SwiftHeadlessBrowser
+├── HeadlessBrowserCore      — HeadlessBrowser class, BrowserEngine protocol, HTML parsing (SwiftSoup)
+└── HeadlessBrowserRemote    — RemoteBrowserEngine: Chrome DevTools Protocol over Foundation WebSocket
 ```
 
-### Guidelines
-- Use `/speckit.specify` before implementing features
-- Follow Swift 6 conventions with strict concurrency
-- Write tests using Swift Testing (`@Test`, `#expect`)
-- Ensure CI passes on all platforms
+**Dependencies:** [SwiftSoup](https://github.com/scinfu/SwiftSoup) only. No swift-nio, no Vapor.
 
 ---
 
-## Credits
+## How It Works
 
-- Original [WKZombie](https://github.com/mkoehnke/WKZombie) by [Mathias Köhnke](https://twitter.com/mkoehnke)
-- Modernization by [Shawn Baek](https://github.com/ShawnBaek) with [Claude Code](https://claude.ai/claude-code)
-- HTML parsing by [SwiftSoup](https://github.com/scinfu/SwiftSoup)
+1. `HeadlessBrowser.withChrome()` launches Chrome in `--headless=new` mode
+2. Connects via WebSocket (`URLSessionWebSocketTask`) to Chrome DevTools Protocol
+3. `Page.navigate` loads the URL, waits for `Page.loadEventFired`
+4. `Runtime.evaluate("document.documentElement.outerHTML")` gets the fully rendered DOM
+5. SwiftSoup parses the HTML for element extraction
+
+---
 
 ## License
 
 MIT License - See [LICENSE](LICENSE) file.
-
----
-
-**Copyright (c) 2025 Shawn Baek**
