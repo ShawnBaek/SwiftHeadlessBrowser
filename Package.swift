@@ -3,7 +3,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "SwiftHeadlessWebKit",
+    name: "SwiftHeadlessBrowser",
     platforms: [
         .macOS(.v12),
         .iOS(.v15),
@@ -13,8 +13,8 @@ let package = Package(
     ],
     products: [
         .library(
-            name: "SwiftHeadlessWebKit",
-            targets: ["SwiftHeadlessWebKit"]
+            name: "SwiftHeadlessBrowser",
+            targets: ["SwiftHeadlessBrowser"]
         )
     ],
     dependencies: [
@@ -24,7 +24,7 @@ let package = Package(
     targets: [
         // Unified target that re-exports all modules
         .target(
-            name: "SwiftHeadlessWebKit",
+            name: "SwiftHeadlessBrowser",
             dependencies: [
                 "HeadlessBrowserCore",
                 "HeadlessBrowserRemote"

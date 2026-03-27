@@ -1,5 +1,5 @@
 //
-// SwiftHeadlessWebKit.swift
+// SwiftHeadlessBrowser.swift
 //
 // Copyright (c) 2025 Shawn Baek
 //
@@ -21,7 +21,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-/// SwiftHeadlessWebKit - A cross-platform headless web browser for Swift.
+/// SwiftHeadlessBrowser - A cross-platform headless web browser for Swift.
 ///
 /// Two modules:
 /// - **HeadlessBrowserCore**: `HeadlessBrowser` class, HTML parsing, `HeadlessEngine` (HTTP-only)
@@ -30,7 +30,7 @@
 /// ## Quick Start (with JavaScript)
 ///
 /// ```swift
-/// import SwiftHeadlessWebKit
+/// import SwiftHeadlessBrowser
 ///
 /// let (browser, process) = try await HeadlessBrowser.withChrome()
 /// defer { BrowserProcessLauncher.terminate(process) }
