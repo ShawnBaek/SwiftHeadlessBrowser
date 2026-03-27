@@ -225,39 +225,6 @@ struct ActionTests {
     }
 }
 
-// MARK: - Headless Engine Tests
-
-@Suite("Headless Engine Tests")
-struct HeadlessEngineTests {
-
-    @Test("Headless engine does not support JavaScript")
-    func headlessNoJS() async {
-        let engine = HeadlessEngine(userAgent: .chromeMac)
-
-        do {
-            _ = try await engine.execute("document.title")
-            Issue.record("Expected error but succeeded")
-        } catch let error as ActionError {
-            #expect(error == .notSupported)
-        } catch {
-            Issue.record("Unexpected error type: \(error)")
-        }
-    }
-
-    @Test("Headless engine throws notFound when no content")
-    func headlessNoContent() async {
-        let engine = HeadlessEngine(userAgent: .safariMac)
-
-        do {
-            _ = try await engine.currentContent()
-            Issue.record("Expected error but succeeded")
-        } catch let error as ActionError {
-            #expect(error == .notFound)
-        } catch {
-            Issue.record("Unexpected error type: \(error)")
-        }
-    }
-}
 
 // MARK: - JSON Tests
 

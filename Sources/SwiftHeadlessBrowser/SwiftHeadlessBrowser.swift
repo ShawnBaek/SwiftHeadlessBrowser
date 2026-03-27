@@ -21,13 +21,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-/// SwiftHeadlessBrowser - A cross-platform headless web browser for Swift.
+/// SwiftHeadlessBrowser - A headless web browser for Swift with full JavaScript execution.
 ///
-/// Two modules:
-/// - **HeadlessBrowserCore**: `HeadlessBrowser` class, HTML parsing, `HeadlessEngine` (HTTP-only)
-/// - **HeadlessBrowserRemote**: `RemoteBrowserEngine` — full JavaScript via Chrome/Chromium headless
-///
-/// ## Quick Start (with JavaScript)
+/// Uses Chrome/Chromium headless via Chrome DevTools Protocol.
 ///
 /// ```swift
 /// import SwiftHeadlessBrowser
@@ -36,13 +32,7 @@
 /// defer { BrowserProcessLauncher.terminate(process) }
 ///
 /// let page: HTMLPage = try await browser.open(myURL).execute()
-/// ```
-///
-/// ## HTTP-only (no JavaScript, no Chrome needed)
-///
-/// ```swift
-/// let browser = HeadlessBrowser()
-/// let page: HTMLPage = try await browser.open(myURL).execute()
+/// let title: String = try await browser.execute("document.title").execute()
 /// ```
 
 @_exported import HeadlessBrowserCore

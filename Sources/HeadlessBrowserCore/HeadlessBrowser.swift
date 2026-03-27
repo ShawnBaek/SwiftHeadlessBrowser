@@ -55,77 +55,15 @@ public protocol BrowserEngine: Sendable {
     var timeoutInSeconds: TimeInterval { get }
 }
 
-// MARK: - Headless Engine (Cross-Platform)
-
-/// A headless browser engine that works on all platforms including Linux.
-/// This engine fetches HTML via HTTP but cannot execute JavaScript.
-public final class HeadlessEngine: BrowserEngine, @unchecked Sendable {
-
-    private let fetcher: ContentFetcher
-    private let _userAgent: UserAgent
-    private let _timeoutInSeconds: TimeInterval
-    private var currentData: Data?
-    private var currentURL: URL?
-
-    public var userAgent: UserAgent { _userAgent }
-    public var timeoutInSeconds: TimeInterval { _timeoutInSeconds }
-
-    public init(userAgent: UserAgent, timeoutInSeconds: TimeInterval = 30.0) {
-        self._userAgent = userAgent
-        self._timeoutInSeconds = timeoutInSeconds
-
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = timeoutInSeconds
-        config.httpAdditionalHeaders = ["User-Agent": userAgent.rawValue]
-        let session = URLSession(configuration: config)
-        self.fetcher = ContentFetcher(session: session)
-    }
-
-    public func openURL(_ url: URL, postAction: PostAction = .none) async throws -> (Data, URL?) {
-        let (data, response) = try await fetcher.fetch(url)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw ActionError.networkRequestFailure
-        }
-
-        let successRange = 200..<300
-        guard successRange.contains(httpResponse.statusCode) else {
-            throw ActionError.networkRequestFailure
-        }
-
-        self.currentData = data
-        self.currentURL = url
-
-        // Handle post action (wait)
-        if case .wait(let time) = postAction {
-            try await Task.sleep(nanoseconds: UInt64(time * 1_000_000_000))
-        }
-
-        return (data, url)
-    }
-
-    public func execute(_ script: String) async throws -> String {
-        // JavaScript execution is not supported in headless mode on non-Apple platforms
-        throw ActionError.notSupported
-    }
-
-    public func executeAndLoad(_ script: String, postAction: PostAction) async throws -> (Data, URL?) {
-        // JavaScript execution is not supported in headless mode
-        throw ActionError.notSupported
-    }
-
-    public func currentContent() async throws -> (Data, URL?) {
-        guard let data = currentData else {
-            throw ActionError.notFound
-        }
-        return (data, currentURL)
-    }
-}
-
 // MARK: - HeadlessBrowser Main Class
 
-/// HeadlessBrowser is a Swift framework for iOS/OSX/Linux to navigate within websites
-/// and collect data without the need of User Interface or API.
+/// A headless browser for server-side web scraping with full JavaScript support.
+///
+/// Create instances using the factory methods:
+/// ```swift
+/// let (browser, process) = try await HeadlessBrowser.withChrome()
+/// defer { BrowserProcessLauncher.terminate(process) }
+/// ```
 open class HeadlessBrowser: @unchecked Sendable {
 
     // MARK: - Properties
@@ -149,21 +87,16 @@ open class HeadlessBrowser: @unchecked Sendable {
         return engine.userAgent.rawValue
     }
 
-    // MARK: - Shared Instance
-
-    /// Returns the shared HeadlessBrowser instance.
-    public static let sharedInstance = HeadlessBrowser()
-
     // MARK: - Initialization
 
-    /// Creates a new HeadlessBrowser instance.
+    /// Creates a new HeadlessBrowser instance with a browser engine.
     ///
     /// - Parameters:
     ///   - name: An optional name/identifier for this instance.
-    ///   - engine: The browser engine to use. Defaults to HeadlessEngine.
-    public init(name: String? = nil, engine: BrowserEngine? = nil) {
+    ///   - engine: The browser engine to use (e.g., RemoteBrowserEngine).
+    public init(name: String? = nil, engine: BrowserEngine) {
         self.name = name ?? "HeadlessBrowser"
-        self.engine = engine ?? HeadlessEngine(userAgent: engine?.userAgent ?? .safariMac)
+        self.engine = engine
         self._fetcher = ContentFetcher()
     }
 
