@@ -23,7 +23,7 @@
 
 #if os(Linux)
 import Foundation
-import WKZombie
+import HeadlessBrowserCore
 
 #if canImport(CWebKit)
 import CWebKit
@@ -58,7 +58,7 @@ import CWebKit
 ///
 /// ```swift
 /// let engine = WPEWebKitEngine(timeoutInSeconds: 60.0)
-/// let browser = WKZombie(name: "HeadlessBrowser", engine: engine)
+/// let browser = HeadlessBrowser(name: "HeadlessBrowser", engine: engine)
 ///
 /// let page: HTMLPage = try await browser.open(url: myURL).execute()
 /// ```

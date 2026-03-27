@@ -23,7 +23,7 @@
 
 import Foundation
 
-/// WKZombie Console Logger
+/// HeadlessBrowser Console Logger
 public final class Logger: Sendable {
 
     nonisolated(unsafe) public static var enabled: Bool = true

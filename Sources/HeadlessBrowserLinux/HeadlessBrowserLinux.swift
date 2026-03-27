@@ -1,5 +1,5 @@
 //
-// WKZombieLinux.swift
+// HeadlessBrowserLinux.swift
 //
 // Copyright (c) 2025 Shawn Baek
 //
@@ -24,7 +24,7 @@
 #if os(Linux)
 
 import Foundation
-@_exported import WKZombie
+@_exported import HeadlessBrowserCore
 
 // MARK: - SwiftHeadlessWebKit Linux Module
 
@@ -45,10 +45,10 @@ import Foundation
 /// ## Quick Start
 ///
 /// ```swift
-/// import WKZombieLinux
+/// import HeadlessBrowserLinux
 ///
 /// // Create browser with WPE WebKit (headless)
-/// let browser = WKZombie.withWebKitSupport(name: "MyBrowser")
+/// let browser = HeadlessBrowser.withWebKitSupport(name: "MyBrowser")
 ///
 /// // Open a JavaScript-heavy page
 /// let page: HTMLPage = try await browser.open(
@@ -86,9 +86,9 @@ import Foundation
 
 // MARK: - Convenience Factory Methods
 
-public extension WKZombie {
+public extension HeadlessBrowser {
 
-    /// Creates a WKZombie instance with WebKit JavaScript rendering support.
+    /// Creates a HeadlessBrowser instance with WebKit JavaScript rendering support.
     ///
     /// On Linux, this uses WPE WebKit (the headless WebKit port) for full
     /// JavaScript execution and DOM rendering, matching the behavior of
@@ -98,12 +98,12 @@ public extension WKZombie {
     ///   - name: Optional name for the browser instance
     ///   - userAgent: User agent to use for requests
     ///   - timeoutInSeconds: Maximum time to wait for page loads (default: 30s)
-    /// - Returns: A WKZombie instance configured for JavaScript rendering
+    /// - Returns: A HeadlessBrowser instance configured for JavaScript rendering
     ///
     /// ## Example
     ///
     /// ```swift
-    /// let browser = WKZombie.withWebKitSupport(name: "Scraper")
+    /// let browser = HeadlessBrowser.withWebKitSupport(name: "Scraper")
     ///
     /// // This will render JavaScript before returning
     /// let page: HTMLPage = try await browser.open(
@@ -114,15 +114,15 @@ public extension WKZombie {
         name: String? = nil,
         userAgent: UserAgent = .safariMac,
         timeoutInSeconds: TimeInterval = 30.0
-    ) -> WKZombie {
+    ) -> HeadlessBrowser {
         let engine = WPEWebKitEngine(
             userAgent: userAgent,
             timeoutInSeconds: timeoutInSeconds
         )
-        return WKZombie(name: name, engine: engine)
+        return HeadlessBrowser(name: name, engine: engine)
     }
 
-    /// Creates a WKZombie instance using WebKitGTK.
+    /// Creates a HeadlessBrowser instance using WebKitGTK.
     ///
     /// WebKitGTK requires a display server. Use `xvfb-run` for headless operation:
     /// ```bash
@@ -133,17 +133,17 @@ public extension WKZombie {
     ///   - name: Optional name for the browser instance
     ///   - userAgent: User agent to use for requests
     ///   - timeoutInSeconds: Maximum time to wait for page loads (default: 30s)
-    /// - Returns: A WKZombie instance configured with WebKitGTK
+    /// - Returns: A HeadlessBrowser instance configured with WebKitGTK
     static func withWebKitGTK(
         name: String? = nil,
         userAgent: UserAgent = .safariMac,
         timeoutInSeconds: TimeInterval = 30.0
-    ) -> WKZombie {
+    ) -> HeadlessBrowser {
         let engine = WebKitGTKEngine(
             userAgent: userAgent,
             timeoutInSeconds: timeoutInSeconds
         )
-        return WKZombie(name: name, engine: engine)
+        return HeadlessBrowser(name: name, engine: engine)
     }
 }
 

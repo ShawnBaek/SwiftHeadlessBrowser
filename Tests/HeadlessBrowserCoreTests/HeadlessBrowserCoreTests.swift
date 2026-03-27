@@ -1,5 +1,5 @@
 //
-// WKZombieTests.swift
+// HeadlessBrowserCoreTests.swift
 //
 // Copyright (c) 2015 Mathias Koehnke (http://www.mathiaskoehnke.de)
 //
@@ -23,7 +23,7 @@
 
 import Testing
 import Foundation
-@testable import WKZombie
+@testable import HeadlessBrowserCore
 
 // MARK: - Parser Tests
 

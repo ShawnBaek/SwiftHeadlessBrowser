@@ -33,7 +33,7 @@
 /// ```swift
 /// import SwiftHeadlessWebKit
 ///
-/// let browser = WKZombie()
+/// let browser = HeadlessBrowser()
 /// let page: HTMLPage = try await browser.open(url: myURL).execute()
 /// let elements = page.findElements(.cssSelector("a.link"))
 /// ```
@@ -45,18 +45,18 @@
 ///     userAgent: "MyBot/1.0",
 ///     timeoutInSeconds: 30.0
 /// )
-/// let browser = WKZombie(name: "MyBot", engine: engine)
+/// let browser = HeadlessBrowser(name: "MyBot", engine: engine)
 /// ```
 
 // Re-export core module (available on all platforms)
-@_exported import WKZombie
+@_exported import HeadlessBrowserCore
 
-// Re-export CDP engine (available on all platforms - full JavaScript support)
-@_exported import WKZombieCDP
+// Re-export remote browser engine (available on all platforms - full JavaScript support via Chrome DevTools Protocol)
+@_exported import HeadlessBrowserRemote
 
 // Re-export platform-specific modules
 #if os(macOS) || os(iOS) || os(tvOS) || os(watchOS) || os(visionOS)
-@_exported import WKZombieApple
+@_exported import HeadlessBrowserApple
 #elseif os(Linux)
-@_exported import WKZombieLinux
+@_exported import HeadlessBrowserLinux
 #endif

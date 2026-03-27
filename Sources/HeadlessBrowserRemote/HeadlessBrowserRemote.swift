@@ -1,5 +1,5 @@
 //
-// WKZombieCDP.swift
+// HeadlessBrowserRemote.swift
 //
 // Copyright (c) 2025 Shawn Baek
 //
@@ -22,19 +22,19 @@
 // THE SOFTWARE.
 
 import Foundation
-import WKZombie
+import HeadlessBrowserCore
 
-// MARK: - WKZombie CDP Convenience Factory Methods
+// MARK: - HeadlessBrowser Remote Browser Convenience Factory Methods
 
-public extension WKZombie {
+public extension HeadlessBrowser {
 
-    /// Creates a WKZombie instance backed by a CDP engine, connecting to an existing browser.
+    /// Creates a HeadlessBrowser instance backed by a remote browser engine, connecting to an existing browser.
     ///
-    /// Use this when you have an already-running CDP-compatible browser
+    /// Use this when you have an already-running remote browser
     /// (Chrome headless, Chromium, Lightpanda) and know its WebSocket URL.
     ///
     /// ```swift
-    /// let browser = try await WKZombie.withCDP(
+    /// let browser = try await HeadlessBrowser.withRemoteBrowser(
     ///     webSocketURL: URL(string: "ws://127.0.0.1:9222/devtools/page/ABC")!
     /// )
     /// let page: HTMLPage = try await browser.open(myURL).execute()
@@ -42,36 +42,36 @@ public extension WKZombie {
     ///
     /// - Parameters:
     ///   - name: An optional name/identifier for this instance.
-    ///   - webSocketURL: The WebSocket debug URL of a CDP page target.
+    ///   - webSocketURL: The WebSocket debug URL of a remote browser page target.
     ///   - userAgent: The user agent to use. Defaults to `.chromeMac`.
     ///   - timeoutInSeconds: Timeout for operations. Defaults to 30.
     ///   - waitStrategy: Strategy for determining when pages are loaded. Defaults to `.load`.
-    /// - Returns: A configured WKZombie instance with full JavaScript support.
-    static func withCDP(
+    /// - Returns: A configured HeadlessBrowser instance with full JavaScript support.
+    static func withRemoteBrowser(
         name: String? = nil,
         webSocketURL: URL,
         userAgent: UserAgent = .chromeMac,
         timeoutInSeconds: TimeInterval = 30.0,
-        waitStrategy: CDPWaitStrategy = .load
-    ) async throws -> WKZombie {
-        let config = CDPEngine.Configuration(
+        waitStrategy: PageLoadStrategy = .load
+    ) async throws -> HeadlessBrowser {
+        let config = RemoteBrowserEngine.Configuration(
             webSocketURL: webSocketURL,
             userAgent: userAgent,
             timeoutInSeconds: timeoutInSeconds,
             waitStrategy: waitStrategy
         )
-        let engine = try await CDPEngine(configuration: config)
-        return WKZombie(name: name, engine: engine)
+        let engine = try await RemoteBrowserEngine(configuration: config)
+        return HeadlessBrowser(name: name, engine: engine)
     }
 
-    /// Creates a WKZombie instance that auto-launches Chrome in headless mode.
+    /// Creates a HeadlessBrowser instance that auto-launches Chrome in headless mode.
     ///
     /// This is the easiest way to get full JavaScript support. Chrome must be
     /// installed on the system (or specify a custom path).
     ///
     /// ```swift
-    /// let (browser, process) = try await WKZombie.withChrome()
-    /// defer { CDPBrowserLauncher.terminate(process) }
+    /// let (browser, process) = try await HeadlessBrowser.withChrome()
+    /// defer { BrowserProcessLauncher.terminate(process) }
     ///
     /// let page: HTMLPage = try await browser.open(myURL).execute()
     /// ```
@@ -79,25 +79,25 @@ public extension WKZombie {
     /// - Parameters:
     ///   - name: An optional name/identifier for this instance.
     ///   - chromePath: Path to Chrome binary. If nil, auto-detects.
-    ///   - port: CDP debugging port. Use 0 for auto-assignment.
+    ///   - port: Remote debugging port. Use 0 for auto-assignment.
     ///   - userAgent: The user agent to use. Defaults to `.chromeMac`.
     ///   - timeoutInSeconds: Timeout for operations. Defaults to 30.
     ///   - waitStrategy: Strategy for determining when pages are loaded.
-    /// - Returns: A tuple of the configured WKZombie and the Chrome Process (caller should terminate).
+    /// - Returns: A tuple of the configured HeadlessBrowser and the Chrome Process (caller should terminate).
     static func withChrome(
         name: String? = nil,
         chromePath: String? = nil,
         port: Int = 0,
         userAgent: UserAgent = .chromeMac,
         timeoutInSeconds: TimeInterval = 30.0,
-        waitStrategy: CDPWaitStrategy = .load
-    ) async throws -> (browser: WKZombie, process: Process) {
-        let (process, wsURL) = try await CDPBrowserLauncher.launchChrome(
+        waitStrategy: PageLoadStrategy = .load
+    ) async throws -> (browser: HeadlessBrowser, process: Process) {
+        let (process, wsURL) = try await BrowserProcessLauncher.launchChrome(
             binaryPath: chromePath,
             port: port
         )
 
-        let browser = try await WKZombie.withCDP(
+        let browser = try await HeadlessBrowser.withRemoteBrowser(
             name: name,
             webSocketURL: wsURL,
             userAgent: userAgent,
@@ -108,32 +108,32 @@ public extension WKZombie {
         return (browser, process)
     }
 
-    /// Creates a WKZombie instance that auto-launches Lightpanda.
+    /// Creates a HeadlessBrowser instance that auto-launches Lightpanda.
     ///
     /// Lightpanda is a fast, lightweight headless browser with full JavaScript support.
     ///
     /// - Parameters:
     ///   - name: An optional name/identifier for this instance.
     ///   - binaryPath: Path to Lightpanda binary. If nil, uses default location.
-    ///   - port: CDP debugging port. Use 0 for auto-assignment.
+    ///   - port: Remote debugging port. Use 0 for auto-assignment.
     ///   - userAgent: The user agent to use. Defaults to `.chromeMac`.
     ///   - timeoutInSeconds: Timeout for operations. Defaults to 30.
     ///   - waitStrategy: Strategy for determining when pages are loaded.
-    /// - Returns: A tuple of the configured WKZombie and the Lightpanda Process.
+    /// - Returns: A tuple of the configured HeadlessBrowser and the Lightpanda Process.
     static func withLightpanda(
         name: String? = nil,
         binaryPath: String? = nil,
         port: Int = 0,
         userAgent: UserAgent = .chromeMac,
         timeoutInSeconds: TimeInterval = 30.0,
-        waitStrategy: CDPWaitStrategy = .load
-    ) async throws -> (browser: WKZombie, process: Process) {
-        let (process, wsURL) = try await CDPBrowserLauncher.launchLightpanda(
+        waitStrategy: PageLoadStrategy = .load
+    ) async throws -> (browser: HeadlessBrowser, process: Process) {
+        let (process, wsURL) = try await BrowserProcessLauncher.launchLightpanda(
             binaryPath: binaryPath,
             port: port
         )
 
-        let browser = try await WKZombie.withCDP(
+        let browser = try await HeadlessBrowser.withRemoteBrowser(
             name: name,
             webSocketURL: wsURL,
             userAgent: userAgent,

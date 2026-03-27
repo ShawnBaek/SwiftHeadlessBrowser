@@ -23,7 +23,7 @@
 
 import Testing
 import Foundation
-@testable import WKZombie
+@testable import HeadlessBrowserCore
 
 // MARK: - JavaScript Rendering Tests
 
@@ -95,7 +95,7 @@ struct JavaScriptRenderingTests {
             userAgent: UserAgent.chromeMac,
             timeoutInSeconds: 30.0
         )
-        let browser = WKZombie(name: "UberCareersTest", engine: engine)
+        let browser = HeadlessBrowser(name: "UberCareersTest", engine: engine)
         print("UBER_JOBS_USER_AGENT: \(Self.chromeUserAgent)")
 
         let careersURL = URL(string: "https://www.uber.com/us/en/careers/list/")!

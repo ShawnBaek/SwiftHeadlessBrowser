@@ -1,5 +1,5 @@
 //
-// CDPWaitStrategy.swift
+// PageLoadStrategy.swift
 //
 // Copyright (c) 2025 Shawn Baek
 //
@@ -24,7 +24,7 @@
 import Foundation
 
 /// Strategy for determining when a page has finished loading.
-public enum CDPWaitStrategy: Sendable {
+public enum PageLoadStrategy: Sendable {
     /// Wait for the `Page.loadEventFired` event (window.onload).
     case load
 

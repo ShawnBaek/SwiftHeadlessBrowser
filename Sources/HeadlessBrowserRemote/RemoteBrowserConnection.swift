@@ -1,5 +1,5 @@
 //
-// CDPConnection.swift
+// RemoteBrowserConnection.swift
 //
 // Copyright (c) 2025 Shawn Baek
 //
@@ -27,14 +27,14 @@ import NIOPosix
 import NIOConcurrencyHelpers
 import WebSocketKit
 
-/// Thread-safe CDP WebSocket connection manager.
+/// Thread-safe remote browser WebSocket connection manager.
 ///
-/// Handles sending CDP requests, receiving responses (matched by id),
-/// and dispatching CDP events to subscribers.
+/// Handles sending commands to the remote browser via the Chrome DevTools Protocol,
+/// receiving responses (matched by id), and dispatching browser events to subscribers.
 ///
 /// Uses NIO-compatible locking (not an actor) to avoid event loop issues
 /// with WebSocketKit's NIOLoopBound callbacks.
-public final class CDPConnection: @unchecked Sendable {
+public final class RemoteBrowserConnection: @unchecked Sendable {
 
     // MARK: - Properties
 
@@ -46,15 +46,15 @@ public final class CDPConnection: @unchecked Sendable {
     struct ConnectionState {
         var nextId: Int = 1
         var nextEventWaiterId: Int = 1
-        var pendingRequests: [Int: CheckedContinuation<CDPResponse, any Error>] = [:]
-        var eventHandlers: [String: [@Sendable (CDPEvent) -> Void]] = [:]
-        var eventWaiters: [Int: (method: String, handler: @Sendable (CDPEvent) -> Void)] = [:]
+        var pendingRequests: [Int: CheckedContinuation<BrowserResponse, any Error>] = [:]
+        var eventHandlers: [String: [@Sendable (BrowserEvent) -> Void]] = [:]
+        var eventWaiters: [Int: (method: String, handler: @Sendable (BrowserEvent) -> Void)] = [:]
         var isConnected: Bool = false
     }
 
     // MARK: - Initialization
 
-    /// Creates a new CDPConnection.
+    /// Creates a new RemoteBrowserConnection.
     /// - Parameter eventLoopGroup: The NIO event loop group to use. If nil, creates a new one.
     public init(eventLoopGroup: (any EventLoopGroup)? = nil) {
         if let group = eventLoopGroup {
@@ -68,7 +68,7 @@ public final class CDPConnection: @unchecked Sendable {
 
     // MARK: - Connection
 
-    /// Connect to a CDP WebSocket endpoint.
+    /// Connect to a remote browser WebSocket endpoint.
     /// - Parameter url: The WebSocket URL (e.g., `ws://127.0.0.1:9222/devtools/page/ABC`).
     public func connect(to url: URL) async throws {
         let isAlreadyConnected = _state.withLockedValue { $0.isConnected }
@@ -112,14 +112,14 @@ public final class CDPConnection: @unchecked Sendable {
                     return was
                 }
                 if !alreadyResumed {
-                    continuation.resume(throwing: CDPError.connectionFailed(error.localizedDescription))
+                    continuation.resume(throwing: RemoteBrowserError.connectionFailed(error.localizedDescription))
                 }
             }
         }
     }
 
     private func handleDisconnected() {
-        let pending = _state.withLockedValue { state -> [CheckedContinuation<CDPResponse, any Error>] in
+        let pending = _state.withLockedValue { state -> [CheckedContinuation<BrowserResponse, any Error>] in
             state.isConnected = false
             let continuations = Array(state.pendingRequests.values)
             state.pendingRequests.removeAll()
@@ -127,13 +127,13 @@ public final class CDPConnection: @unchecked Sendable {
         }
         webSocket = nil
         for continuation in pending {
-            continuation.resume(throwing: CDPError.disconnected)
+            continuation.resume(throwing: RemoteBrowserError.disconnected)
         }
     }
 
     private func handleIncoming(_ data: Data) {
         do {
-            let message = try CDPIncoming.parse(data)
+            let message = try IncomingMessage.parse(data)
             switch message {
             case .response(let response):
                 let continuation = _state.withLockedValue { state in
@@ -149,8 +149,8 @@ public final class CDPConnection: @unchecked Sendable {
                     handler(event)
                 }
                 // Fire and remove one-shot waiters
-                let matchedWaiters = _state.withLockedValue { state -> [@Sendable (CDPEvent) -> Void] in
-                    var matched: [@Sendable (CDPEvent) -> Void] = []
+                let matchedWaiters = _state.withLockedValue { state -> [@Sendable (BrowserEvent) -> Void] in
+                    var matched: [@Sendable (BrowserEvent) -> Void] = []
                     for (id, waiter) in state.eventWaiters {
                         if waiter.method == event.method {
                             matched.append(waiter.handler)
@@ -170,20 +170,20 @@ public final class CDPConnection: @unchecked Sendable {
 
     // MARK: - Sending Commands
 
-    /// Send a CDP command and wait for the response.
+    /// Send a command to the remote browser and wait for the response.
     /// - Parameters:
-    ///   - method: The CDP method (e.g., "Page.navigate").
+    ///   - method: The Chrome DevTools Protocol method (e.g., "Page.navigate").
     ///   - params: Optional parameters dictionary.
     ///   - timeout: Maximum time to wait for a response.
-    /// - Returns: The CDP response.
+    /// - Returns: The browser response.
     public func send(
         method: String,
         params: [String: any Sendable]? = nil,
         timeout: TimeInterval = 30.0
-    ) async throws -> CDPResponse {
+    ) async throws -> BrowserResponse {
         let isConn = _state.withLockedValue { $0.isConnected }
         guard let ws = webSocket, isConn else {
-            throw CDPError.disconnected
+            throw RemoteBrowserError.disconnected
         }
 
         let id = _state.withLockedValue { state -> Int in
@@ -192,12 +192,12 @@ public final class CDPConnection: @unchecked Sendable {
             return id
         }
 
-        let request = CDPRequest(id: id, method: method, params: params)
+        let request = BrowserCommand(id: id, method: method, params: params)
         let jsonData = try request.toJSON()
         let jsonString = String(data: jsonData, encoding: .utf8) ?? ""
 
         // Register continuation before sending to avoid race
-        let response: CDPResponse = try await withCheckedThrowingContinuation { continuation in
+        let response: BrowserResponse = try await withCheckedThrowingContinuation { continuation in
             _state.withLockedValue { state in
                 state.pendingRequests[id] = continuation
             }
@@ -209,12 +209,12 @@ public final class CDPConnection: @unchecked Sendable {
                 let cont = self?._state.withLockedValue { state in
                     state.pendingRequests.removeValue(forKey: id)
                 }
-                cont?.resume(throwing: CDPError.connectionFailed(error.localizedDescription))
+                cont?.resume(throwing: RemoteBrowserError.connectionFailed(error.localizedDescription))
             }
         }
 
         if let error = response.error {
-            throw CDPError.protocolError(error.code, error.message)
+            throw RemoteBrowserError.protocolError(error.code, error.message)
         }
 
         return response
@@ -222,11 +222,11 @@ public final class CDPConnection: @unchecked Sendable {
 
     // MARK: - Event Subscription
 
-    /// Subscribe to CDP events of a given method.
+    /// Subscribe to browser events of a given method.
     /// - Parameters:
-    ///   - method: The CDP event method (e.g., "Page.loadEventFired").
+    ///   - method: The browser event method (e.g., "Page.loadEventFired").
     ///   - handler: Callback invoked when the event fires.
-    public func on(_ method: String, handler: @escaping @Sendable (CDPEvent) -> Void) {
+    public func on(_ method: String, handler: @escaping @Sendable (BrowserEvent) -> Void) {
         _state.withLockedValue { state in
             state.eventHandlers[method, default: []].append(handler)
         }
@@ -235,13 +235,13 @@ public final class CDPConnection: @unchecked Sendable {
     /// Represents a pending event wait that has been registered but not yet awaited.
     /// The waiter is registered synchronously to avoid race conditions.
     public struct EventWaiter: Sendable {
-        let stream: AsyncStream<CDPEvent>
+        let stream: AsyncStream<BrowserEvent>
         let waiterId: Int
-        let connection: CDPConnection
+        let connection: RemoteBrowserConnection
 
         /// Await the event with a timeout.
-        public func wait(timeout: TimeInterval = 30.0) async throws -> CDPEvent? {
-            try await withThrowingTaskGroup(of: CDPEvent?.self) { group in
+        public func wait(timeout: TimeInterval = 30.0) async throws -> BrowserEvent? {
+            try await withThrowingTaskGroup(of: BrowserEvent?.self) { group in
                 group.addTask {
                     for await event in stream {
                         return event
@@ -254,7 +254,7 @@ public final class CDPConnection: @unchecked Sendable {
                     connection._state.withLockedValue { state in
                         state.eventWaiters.removeValue(forKey: waiterId)
                     }
-                    throw CDPError.timeout("Timed out waiting for event")
+                    throw RemoteBrowserError.timeout("Timed out waiting for event")
                 }
 
                 let result = try await group.next()
@@ -264,7 +264,7 @@ public final class CDPConnection: @unchecked Sendable {
         }
     }
 
-    /// Register a waiter for a CDP event synchronously.
+    /// Register a waiter for a browser event synchronously.
     /// Returns an `EventWaiter` that can be awaited later.
     /// This allows registering BEFORE the action that triggers the event.
     ///
@@ -275,11 +275,11 @@ public final class CDPConnection: @unchecked Sendable {
     /// try await waiter.wait(timeout: 30)
     /// ```
     public func expectEvent(_ method: String) -> EventWaiter {
-        let (stream, continuation) = AsyncStream<CDPEvent>.makeStream()
+        let (stream, continuation) = AsyncStream<BrowserEvent>.makeStream()
         let waiterId = _state.withLockedValue { state -> Int in
             let id = state.nextEventWaiterId
             state.nextEventWaiterId += 1
-            let handler: @Sendable (CDPEvent) -> Void = { event in
+            let handler: @Sendable (BrowserEvent) -> Void = { event in
                 continuation.yield(event)
                 continuation.finish()
             }
@@ -289,12 +289,12 @@ public final class CDPConnection: @unchecked Sendable {
         return EventWaiter(stream: stream, waiterId: waiterId, connection: self)
     }
 
-    /// Wait for a specific CDP event, with timeout.
+    /// Wait for a specific browser event, with timeout.
     ///
     /// NOTE: This has a race condition if called after the action that triggers the event.
     /// Prefer `expectEvent()` + `waiter.wait()` for reliable event waiting.
     @discardableResult
-    public func waitForEvent(_ method: String, timeout: TimeInterval = 30.0) async throws -> CDPEvent? {
+    public func waitForEvent(_ method: String, timeout: TimeInterval = 30.0) async throws -> BrowserEvent? {
         let waiter = expectEvent(method)
         return try await waiter.wait(timeout: timeout)
     }

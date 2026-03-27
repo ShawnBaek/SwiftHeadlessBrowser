@@ -1,5 +1,5 @@
 //
-// CDPEngineTests.swift
+// RemoteBrowserEngineTests.swift
 //
 // Copyright (c) 2025 Shawn Baek
 //
@@ -23,25 +23,25 @@
 
 import Testing
 import Foundation
-@testable import WKZombieCDP
-@testable import WKZombie
+@testable import HeadlessBrowserRemote
+@testable import HeadlessBrowserCore
 
-// MARK: - CDP Engine Unit Tests
+// MARK: - Remote Browser Engine Unit Tests
 
-@Suite("CDP Engine Tests")
-struct CDPEngineTests {
+@Suite("Remote Browser Engine Tests")
+struct RemoteBrowserEngineTests {
 
-    @Test("CDPEngine conforms to BrowserEngine")
+    @Test("RemoteBrowserEngine conforms to BrowserEngine")
     func conformsToBrowserEngine() async throws {
-        // CDPEngine must implement the BrowserEngine protocol.
-        // We verify this at compile time — if CDPEngine doesn't conform,
+        // RemoteBrowserEngine must implement the BrowserEngine protocol.
+        // We verify this at compile time — if RemoteBrowserEngine doesn't conform,
         // this file won't compile.
-        let _: any BrowserEngine.Type = CDPEngine.self
+        let _: any BrowserEngine.Type = RemoteBrowserEngine.self
     }
 
-    @Test("CDPEngine.Configuration defaults are sensible")
+    @Test("RemoteBrowserEngine.Configuration defaults are sensible")
     func configurationDefaults() {
-        let config = CDPEngine.Configuration(
+        let config = RemoteBrowserEngine.Configuration(
             webSocketURL: URL(string: "ws://127.0.0.1:9222/devtools/page/ABC")!
         )
 
@@ -50,9 +50,9 @@ struct CDPEngineTests {
         #expect(config.webSocketURL.absoluteString == "ws://127.0.0.1:9222/devtools/page/ABC")
     }
 
-    @Test("CDPEngine.Configuration accepts custom values")
+    @Test("RemoteBrowserEngine.Configuration accepts custom values")
     func configurationCustomValues() {
-        let config = CDPEngine.Configuration(
+        let config = RemoteBrowserEngine.Configuration(
             webSocketURL: URL(string: "ws://localhost:9333/devtools/page/XYZ")!,
             userAgent: .safariIPhone,
             timeoutInSeconds: 60.0,
@@ -63,54 +63,54 @@ struct CDPEngineTests {
         #expect(config.timeoutInSeconds == 60.0)
     }
 
-    @Test("CDPBrowserLauncher detects Chrome binary on macOS")
+    @Test("BrowserProcessLauncher detects Chrome binary on macOS")
     func findChromeBinary() {
         #if os(macOS)
         // This test checks if Chrome can be found on the system.
         // It's not a hard failure if Chrome isn't installed.
         do {
-            let path = try CDPBrowserLauncher.findChromeBinary()
+            let path = try BrowserProcessLauncher.findChromeBinary()
             #expect(!path.isEmpty)
             #expect(FileManager.default.isExecutableFile(atPath: path))
-            print("CDP_CHROME_FOUND: \(path)")
+            print("REMOTE_CHROME_FOUND: \(path)")
         } catch {
-            print("CDP_CHROME_NOT_FOUND: Chrome not installed (expected in CI)")
+            print("REMOTE_CHROME_NOT_FOUND: Chrome not installed (expected in CI)")
         }
         #endif
     }
 
-    @Test("CDPBrowserLauncher respects CHROME_BIN environment variable")
+    @Test("BrowserProcessLauncher respects CHROME_BIN environment variable")
     func chromeBinEnvVar() {
         // We can't easily set environment variables in tests,
         // but we verify the code path exists by checking the method signature.
         // The implementation checks ProcessInfo.processInfo.environment["CHROME_BIN"]
         let envValue = ProcessInfo.processInfo.environment["CHROME_BIN"]
         if let path = envValue {
-            print("CDP_CHROME_BIN_ENV: \(path)")
+            print("REMOTE_CHROME_BIN_ENV: \(path)")
         } else {
-            print("CDP_CHROME_BIN_ENV: not set")
+            print("REMOTE_CHROME_BIN_ENV: not set")
         }
     }
 }
 
-// MARK: - CDP Action Error Tests
+// MARK: - Remote Browser Action Error Tests
 
-@Suite("CDP Action Error Tests")
-struct CDPActionErrorTests {
+@Suite("Remote Browser Action Error Tests")
+struct RemoteBrowserActionErrorTests {
 
-    @Test("ActionError has CDP error cases")
-    func cdpErrorCases() {
+    @Test("ActionError has remote browser error cases")
+    func remoteBrowserErrorCases() {
         let errors: [ActionError] = [
-            .cdpConnectionFailed,
-            .cdpBrowserLaunchFailed,
-            .cdpProtocolError("test error"),
-            .cdpDisconnected
+            .remoteBrowserConnectionFailed,
+            .remoteBrowserLaunchFailed,
+            .remoteBrowserProtocolError("test error"),
+            .remoteBrowserDisconnected
         ]
 
         #expect(errors.count == 4)
-        #expect(ActionError.cdpConnectionFailed.debugDescription == "CDP Connection Failed")
-        #expect(ActionError.cdpBrowserLaunchFailed.debugDescription == "CDP Browser Launch Failed")
-        #expect(ActionError.cdpProtocolError("test").debugDescription == "CDP Protocol Error: test")
-        #expect(ActionError.cdpDisconnected.debugDescription == "CDP Disconnected")
+        #expect(ActionError.remoteBrowserConnectionFailed.debugDescription == "Remote Browser Connection Failed")
+        #expect(ActionError.remoteBrowserLaunchFailed.debugDescription == "Remote Browser Launch Failed")
+        #expect(ActionError.remoteBrowserProtocolError("test").debugDescription == "Remote Browser Protocol Error: test")
+        #expect(ActionError.remoteBrowserDisconnected.debugDescription == "Remote Browser Disconnected")
     }
 }

@@ -1,5 +1,5 @@
 //
-// WKZombieAppleTests.swift
+// HeadlessBrowserAppleTests.swift
 //
 // Copyright (c) 2015 Mathias Koehnke (http://www.mathiaskoehnke.de)
 //
@@ -24,8 +24,8 @@
 #if canImport(WebKit)
 import Testing
 import Foundation
-@testable import WKZombie
-@testable import WKZombieApple
+@testable import HeadlessBrowserCore
+@testable import HeadlessBrowserApple
 
 @Suite("WebKit Engine Tests")
 struct WebKitEngineTests {
@@ -46,14 +46,14 @@ struct WebKitEngineTests {
     }
 }
 
-@Suite("WKZombieApple Extension Tests")
-struct WKZombieAppleExtensionTests {
+@Suite("HeadlessBrowserApple Extension Tests")
+struct HeadlessBrowserAppleExtensionTests {
 
-    @Test("WKZombie with WebKit engine can be created")
+    @Test("HeadlessBrowser with WebKit engine can be created")
     @MainActor
-    func createWKZombieWithWebKit() async {
-        let zombie = WKZombie(name: "TestZombie", processPool: nil, userAgent: .safariMac)
-        #expect(zombie.name == "TestZombie")
+    func createHeadlessBrowserWithWebKit() async {
+        let browser = HeadlessBrowser(name: "TestBrowser", processPool: nil, userAgent: .safariMac)
+        #expect(browser.name == "TestBrowser")
     }
 }
 

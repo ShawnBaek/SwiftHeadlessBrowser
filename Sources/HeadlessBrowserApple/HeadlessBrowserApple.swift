@@ -1,5 +1,5 @@
 //
-// WKZombieApple.swift
+// HeadlessBrowserApple.swift
 //
 // Copyright (c) 2015 Mathias Koehnke (http://www.mathiaskoehnke.de)
 //
@@ -24,7 +24,7 @@
 #if canImport(WebKit)
 import Foundation
 import WebKit
-@_exported import WKZombie
+@_exported import HeadlessBrowserCore
 
 // MARK: - Snapshot Types
 
@@ -207,10 +207,10 @@ public final class WebKitEngine: @preconcurrency BrowserEngine, @unchecked Senda
     }
 }
 
-// MARK: - WKZombieApple Extensions
+// MARK: - HeadlessBrowserApple Extensions
 
-public extension WKZombie {
-    /// Creates a new WKZombie instance with WebKit engine.
+public extension HeadlessBrowser {
+    /// Creates a new HeadlessBrowser instance with WebKit engine.
     ///
     /// - Parameters:
     ///   - name: An optional name/identifier for this instance.
@@ -223,7 +223,7 @@ public extension WKZombie {
     /// Submits the specified HTML form.
     ///
     /// - Parameter form: A HTML form.
-    /// - Returns: The WKZombie Action.
+    /// - Returns: The HeadlessBrowser Action.
     func submit<T: Page>(_ form: HTMLForm) -> Action<T> {
         return submit(then: .none)(form)
     }
@@ -231,7 +231,7 @@ public extension WKZombie {
     /// Submits the specified HTML form with post action.
     ///
     /// - Parameter postAction: A wait/validation action.
-    /// - Returns: A function that takes a form and returns the WKZombie Action.
+    /// - Returns: A function that takes a form and returns the HeadlessBrowser Action.
     func submit<T: Page>(then postAction: PostAction) -> @Sendable (_ form: HTMLForm) -> Action<T> {
         return { [self] (form: HTMLForm) -> Action<T> in
             return Action(operation: { completion in
@@ -260,7 +260,7 @@ public extension WKZombie {
     /// Simulates the click of a HTML link.
     ///
     /// - Parameter link: The HTML link.
-    /// - Returns: The WKZombie Action.
+    /// - Returns: The HeadlessBrowser Action.
     func click<T: Page>(_ link: HTMLLink) -> Action<T> {
         return click(then: .none)(link)
     }
@@ -268,7 +268,7 @@ public extension WKZombie {
     /// Simulates the click of a HTML link with post action.
     ///
     /// - Parameter postAction: A wait/validation action.
-    /// - Returns: A function that takes a link and returns the WKZombie Action.
+    /// - Returns: A function that takes a link and returns the HeadlessBrowser Action.
     func click<T: Page>(then postAction: PostAction) -> @Sendable (_ link: HTMLLink) -> Action<T> {
         return { [self] (link: HTMLLink) -> Action<T> in
             return self.redirect(link, postAction: postAction)
@@ -278,7 +278,7 @@ public extension WKZombie {
     /// Simulates HTMLButton press.
     ///
     /// - Parameter button: The HTML button.
-    /// - Returns: The WKZombie Action.
+    /// - Returns: The HeadlessBrowser Action.
     func press<T: Page>(_ button: HTMLButton) -> Action<T> {
         return press(then: .none)(button)
     }
@@ -286,7 +286,7 @@ public extension WKZombie {
     /// Simulates HTMLButton press with post action.
     ///
     /// - Parameter postAction: A wait/validation action.
-    /// - Returns: A function that takes a button and returns the WKZombie Action.
+    /// - Returns: A function that takes a button and returns the HeadlessBrowser Action.
     func press<T: Page>(then postAction: PostAction) -> @Sendable (_ button: HTMLButton) -> Action<T> {
         return { [self] (button: HTMLButton) -> Action<T> in
             return self.redirect(button, postAction: postAction)
@@ -296,7 +296,7 @@ public extension WKZombie {
     /// Swaps the current page context with an embedded iframe.
     ///
     /// - Parameter iframe: The HTMLFrame (iFrame).
-    /// - Returns: The WKZombie Action.
+    /// - Returns: The HeadlessBrowser Action.
     func swap<T: Page>(_ iframe: HTMLFrame) -> Action<T> {
         return swap(then: .none)(iframe)
     }
@@ -304,7 +304,7 @@ public extension WKZombie {
     /// Swaps the current page context with an embedded iframe with post action.
     ///
     /// - Parameter postAction: A wait/validation action.
-    /// - Returns: A function that takes an iframe and returns the WKZombie Action.
+    /// - Returns: A function that takes an iframe and returns the HeadlessBrowser Action.
     func swap<T: Page>(then postAction: PostAction) -> @Sendable (_ iframe: HTMLFrame) -> Action<T> {
         return { [self] (iframe: HTMLFrame) -> Action<T> in
             return self.redirect(iframe, postAction: postAction)
@@ -348,11 +348,11 @@ public extension WKZombie {
 // MARK: - Snapshot Extension (iOS only)
 
 #if os(iOS) || os(visionOS)
-public extension WKZombie {
+public extension HeadlessBrowser {
     /// Takes a snapshot of the current page.
     ///
     /// - Parameter element: The element to pass through.
-    /// - Returns: The WKZombie Action.
+    /// - Returns: The HeadlessBrowser Action.
     func snap<T: Sendable>(_ element: T, handler: @escaping SnapshotHandler) -> Action<T> {
         return Action<T>(operation: { [self] completion in
             Task { @MainActor in

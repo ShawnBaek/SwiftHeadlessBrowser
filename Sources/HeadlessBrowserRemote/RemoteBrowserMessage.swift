@@ -1,5 +1,5 @@
 //
-// CDPMessage.swift
+// RemoteBrowserMessage.swift
 //
 // Copyright (c) 2025 Shawn Baek
 //
@@ -23,10 +23,10 @@
 
 import Foundation
 
-// MARK: - CDP Outgoing Messages
+// MARK: - Remote Browser Outgoing Messages
 
-/// A CDP JSON-RPC request sent to the browser.
-public struct CDPRequest: Sendable {
+/// A JSON-RPC request sent to the remote browser via the Chrome DevTools Protocol.
+public struct BrowserCommand: Sendable {
     public let id: Int
     public let method: String
     // params contains JSON-serializable values (String, Int, Bool, etc.)
@@ -52,52 +52,52 @@ public struct CDPRequest: Sendable {
     }
 }
 
-// MARK: - CDP Incoming Messages
+// MARK: - Remote Browser Incoming Messages
 
-/// Represents any incoming CDP message parsed from WebSocket.
-public enum CDPIncoming: Sendable {
+/// Represents any incoming message from the remote browser parsed from WebSocket.
+public enum IncomingMessage: Sendable {
     /// A response to a request, matched by `id`.
-    case response(CDPResponse)
+    case response(BrowserResponse)
     /// An event pushed by the browser (no `id`).
-    case event(CDPEvent)
+    case event(BrowserEvent)
 
-    /// Parse a raw JSON Data payload into a CDPIncoming message.
-    public static func parse(_ data: Data) throws -> CDPIncoming {
+    /// Parse a raw JSON Data payload into an IncomingMessage.
+    public static func parse(_ data: Data) throws -> IncomingMessage {
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw CDPError.malformedMessage("Expected JSON object")
+            throw RemoteBrowserError.malformedMessage("Expected JSON object")
         }
 
         // Responses have an "id" field; events do not
         if let id = json["id"] as? Int {
             let result = json["result"] as? [String: Any]
-            let error = CDPResponseError.from(json["error"])
-            return .response(CDPResponse(id: id, result: result, error: error))
+            let error = BrowserResponseError.from(json["error"])
+            return .response(BrowserResponse(id: id, result: result, error: error))
         } else if let method = json["method"] as? String {
             let params = json["params"] as? [String: Any]
-            return .event(CDPEvent(method: method, params: params))
+            return .event(BrowserEvent(method: method, params: params))
         } else {
-            throw CDPError.malformedMessage("Message has neither 'id' nor 'method'")
+            throw RemoteBrowserError.malformedMessage("Message has neither 'id' nor 'method'")
         }
     }
 }
 
-/// A CDP response to a previously sent request.
-public struct CDPResponse: @unchecked Sendable {
+/// A response from the remote browser to a previously sent request.
+public struct BrowserResponse: @unchecked Sendable {
     public let id: Int
     // Result contains JSON-deserialized values from JSONSerialization
     // which produces plist-compatible (Sendable-safe) types
     nonisolated(unsafe) public let result: [String: Any]?
-    public let error: CDPResponseError?
+    public let error: BrowserResponseError?
 
-    public init(id: Int, result: [String: Any]?, error: CDPResponseError?) {
+    public init(id: Int, result: [String: Any]?, error: BrowserResponseError?) {
         self.id = id
         self.result = result
         self.error = error
     }
 }
 
-/// A CDP event pushed by the browser.
-public struct CDPEvent: @unchecked Sendable {
+/// An event pushed by the remote browser.
+public struct BrowserEvent: @unchecked Sendable {
     public let method: String
     // Params contains JSON-deserialized values
     nonisolated(unsafe) public let params: [String: Any]?
@@ -108,8 +108,8 @@ public struct CDPEvent: @unchecked Sendable {
     }
 }
 
-/// An error returned inside a CDP response.
-public struct CDPResponseError: Sendable {
+/// An error returned inside a remote browser response.
+public struct BrowserResponseError: Sendable {
     public let code: Int
     public let message: String
 
@@ -118,20 +118,20 @@ public struct CDPResponseError: Sendable {
         self.message = message
     }
 
-    static func from(_ value: Any?) -> CDPResponseError? {
+    static func from(_ value: Any?) -> BrowserResponseError? {
         guard let dict = value as? [String: Any],
               let code = dict["code"] as? Int,
               let message = dict["message"] as? String else {
             return nil
         }
-        return CDPResponseError(code: code, message: message)
+        return BrowserResponseError(code: code, message: message)
     }
 }
 
-// MARK: - CDP Errors
+// MARK: - Remote Browser Errors
 
-/// Errors specific to CDP communication.
-public enum CDPError: Error, Sendable, CustomDebugStringConvertible {
+/// Errors specific to remote browser communication via the Chrome DevTools Protocol.
+public enum RemoteBrowserError: Error, Sendable, CustomDebugStringConvertible {
     case connectionFailed(String)
     case browserLaunchFailed(String)
     case protocolError(Int, String)
@@ -142,13 +142,13 @@ public enum CDPError: Error, Sendable, CustomDebugStringConvertible {
 
     public var debugDescription: String {
         switch self {
-        case .connectionFailed(let msg): return "CDP Connection Failed: \(msg)"
-        case .browserLaunchFailed(let msg): return "CDP Browser Launch Failed: \(msg)"
-        case .protocolError(let code, let msg): return "CDP Protocol Error (\(code)): \(msg)"
-        case .disconnected: return "CDP Disconnected"
-        case .malformedMessage(let msg): return "CDP Malformed Message: \(msg)"
-        case .timeout(let msg): return "CDP Timeout: \(msg)"
-        case .navigationFailed(let msg): return "CDP Navigation Failed: \(msg)"
+        case .connectionFailed(let msg): return "Remote Browser Connection Failed: \(msg)"
+        case .browserLaunchFailed(let msg): return "Remote Browser Launch Failed: \(msg)"
+        case .protocolError(let code, let msg): return "Remote Browser Protocol Error (\(code)): \(msg)"
+        case .disconnected: return "Remote Browser Disconnected"
+        case .malformedMessage(let msg): return "Remote Browser Malformed Message: \(msg)"
+        case .timeout(let msg): return "Remote Browser Timeout: \(msg)"
+        case .navigationFailed(let msg): return "Remote Browser Navigation Failed: \(msg)"
         }
     }
 }

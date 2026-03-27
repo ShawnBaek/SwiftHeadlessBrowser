@@ -27,10 +27,10 @@ let package = Package(
         .target(
             name: "SwiftHeadlessWebKit",
             dependencies: [
-                "WKZombie",
-                "WKZombieCDP",
-                .target(name: "WKZombieApple", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS])),
-                .target(name: "WKZombieLinux", condition: .when(platforms: [.linux]))
+                "HeadlessBrowserCore",
+                "HeadlessBrowserRemote",
+                .target(name: "HeadlessBrowserApple", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS])),
+                .target(name: "HeadlessBrowserLinux", condition: .when(platforms: [.linux]))
             ],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
@@ -38,7 +38,7 @@ let package = Package(
         ),
         // Core cross-platform library
         .target(
-            name: "WKZombie",
+            name: "HeadlessBrowserCore",
             dependencies: ["SwiftSoup"],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
@@ -46,17 +46,17 @@ let package = Package(
         ),
         // Apple-specific extensions (WebKit rendering)
         .target(
-            name: "WKZombieApple",
-            dependencies: ["WKZombie"],
+            name: "HeadlessBrowserApple",
+            dependencies: ["HeadlessBrowserCore"],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
             ]
         ),
-        // CDP-based engine (all platforms - full JavaScript support)
+        // Remote browser engine (all platforms - full JavaScript support via Chrome DevTools Protocol)
         .target(
-            name: "WKZombieCDP",
+            name: "HeadlessBrowserRemote",
             dependencies: [
-                "WKZombie",
+                "HeadlessBrowserCore",
                 .product(name: "WebSocketKit", package: "websocket-kit")
             ],
             swiftSettings: [
@@ -65,9 +65,9 @@ let package = Package(
         ),
         // Linux-specific extensions
         .target(
-            name: "WKZombieLinux",
+            name: "HeadlessBrowserLinux",
             dependencies: [
-                "WKZombie",
+                "HeadlessBrowserCore",
                 .target(name: "CWebKit", condition: .when(platforms: [.linux]))
             ],
             swiftSettings: [
@@ -86,22 +86,22 @@ let package = Package(
         ),
         // Tests using Swift Testing framework
         .testTarget(
-            name: "WKZombieTests",
-            dependencies: ["WKZombie"],
+            name: "HeadlessBrowserCoreTests",
+            dependencies: ["HeadlessBrowserCore"],
             resources: [
                 .copy("Resources")
             ]
         ),
         .testTarget(
-            name: "WKZombieAppleTests",
-            dependencies: ["WKZombieApple"],
+            name: "HeadlessBrowserAppleTests",
+            dependencies: ["HeadlessBrowserApple"],
             resources: [
                 .copy("Resources")
             ]
         ),
         .testTarget(
-            name: "WKZombieCDPTests",
-            dependencies: ["WKZombieCDP"]
+            name: "HeadlessBrowserRemoteTests",
+            dependencies: ["HeadlessBrowserRemote"]
         )
     ]
 )

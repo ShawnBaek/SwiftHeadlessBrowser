@@ -1,5 +1,5 @@
 //
-// CDPBrowserLauncher.swift
+// BrowserProcessLauncher.swift
 //
 // Copyright (c) 2025 Shawn Baek
 //
@@ -26,16 +26,16 @@ import Foundation
 import FoundationNetworking
 #endif
 
-/// Manages launching and discovering CDP-compatible browser processes.
-public struct CDPBrowserLauncher: Sendable {
+/// Manages launching and discovering remote browser processes that support the Chrome DevTools Protocol.
+public struct BrowserProcessLauncher: Sendable {
 
     // MARK: - Browser Launch
 
-    /// Launch Chrome/Chromium in headless mode with CDP enabled.
+    /// Launch Chrome/Chromium in headless mode with remote debugging enabled.
     ///
     /// - Parameters:
     ///   - binaryPath: Path to the Chrome binary. If nil, auto-detects.
-    ///   - port: CDP debugging port. Use 0 for auto-assignment.
+    ///   - port: Remote debugging port. Use 0 for auto-assignment.
     ///   - additionalArgs: Extra command-line arguments for Chrome.
     /// - Returns: The launched process and the WebSocket debug URL.
     public static func launchChrome(
@@ -47,7 +47,7 @@ public struct CDPBrowserLauncher: Sendable {
         let actualPort = port == 0 ? findAvailablePort() : port
 
         let tempDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("chrome-cdp-\(ProcessInfo.processInfo.processIdentifier)")
+            .appendingPathComponent("chrome-remote-\(ProcessInfo.processInfo.processIdentifier)")
             .path
 
         var args = [
@@ -76,20 +76,20 @@ public struct CDPBrowserLauncher: Sendable {
         do {
             try process.run()
         } catch {
-            throw CDPError.browserLaunchFailed("Failed to launch Chrome at \(chromePath): \(error)")
+            throw RemoteBrowserError.browserLaunchFailed("Failed to launch Chrome at \(chromePath): \(error)")
         }
 
-        // Wait for CDP endpoint to become available
+        // Wait for remote browser endpoint to become available
         let wsURL = try await discoverWebSocketURL(host: "127.0.0.1", port: actualPort, timeout: 15.0)
 
         return (process, wsURL)
     }
 
-    /// Launch Lightpanda in headless mode with CDP enabled.
+    /// Launch Lightpanda in headless mode with remote debugging enabled.
     ///
     /// - Parameters:
     ///   - binaryPath: Path to the Lightpanda binary. If nil, searches PATH.
-    ///   - port: CDP debugging port.
+    ///   - port: Remote debugging port.
     /// - Returns: The launched process and the WebSocket debug URL.
     public static func launchLightpanda(
         binaryPath: String? = nil,
@@ -109,7 +109,7 @@ public struct CDPBrowserLauncher: Sendable {
         do {
             try process.run()
         } catch {
-            throw CDPError.browserLaunchFailed("Failed to launch Lightpanda at \(lpPath): \(error)")
+            throw RemoteBrowserError.browserLaunchFailed("Failed to launch Lightpanda at \(lpPath): \(error)")
         }
 
         let wsURL = try await discoverWebSocketURL(host: "127.0.0.1", port: actualPort, timeout: 10.0)
@@ -119,13 +119,13 @@ public struct CDPBrowserLauncher: Sendable {
 
     // MARK: - Discovery
 
-    /// Discover the WebSocket debug URL from a running CDP browser.
+    /// Discover the WebSocket debug URL from a running remote browser.
     ///
     /// Polls `http://host:port/json/list` until a page target is found.
     ///
     /// - Parameters:
     ///   - host: The hostname (typically "127.0.0.1").
-    ///   - port: The CDP debugging port.
+    ///   - port: The remote debugging port.
     ///   - timeout: Maximum time to wait for the browser to become ready.
     /// - Returns: The WebSocket debug URL for the first page target.
     public static func discoverWebSocketURL(
@@ -160,8 +160,8 @@ public struct CDPBrowserLauncher: Sendable {
             }
         }
 
-        throw CDPError.browserLaunchFailed(
-            "Timed out waiting for CDP endpoint at \(host):\(port)"
+        throw RemoteBrowserError.browserLaunchFailed(
+            "Timed out waiting for remote browser endpoint at \(host):\(port)"
         )
     }
 
@@ -202,7 +202,7 @@ public struct CDPBrowserLauncher: Sendable {
             }
         }
 
-        throw CDPError.browserLaunchFailed(
+        throw RemoteBrowserError.browserLaunchFailed(
             "Chrome/Chromium not found. Set CHROME_BIN environment variable or install Chrome."
         )
     }
@@ -259,7 +259,7 @@ public struct CDPBrowserLauncher: Sendable {
                 } else if let data = data, let response = response {
                     continuation.resume(returning: (data, response))
                 } else {
-                    continuation.resume(throwing: CDPError.connectionFailed("No data"))
+                    continuation.resume(throwing: RemoteBrowserError.connectionFailed("No data"))
                 }
             }.resume()
         }

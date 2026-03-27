@@ -1,5 +1,5 @@
 //
-// CDPIntegrationTests.swift
+// RemoteBrowserIntegrationTests.swift
 //
 // Copyright (c) 2025 Shawn Baek
 //
@@ -23,31 +23,31 @@
 
 import Testing
 import Foundation
-@testable import WKZombieCDP
-@testable import WKZombie
+@testable import HeadlessBrowserRemote
+@testable import HeadlessBrowserCore
 
-// MARK: - CDP Integration Tests (Require Chrome)
+// MARK: - Remote Browser Integration Tests (Require Chrome)
 
 /// Integration tests that launch a real Chrome headless browser and load JS-heavy websites.
 ///
 /// These tests require Chrome/Chromium to be installed on the system.
-/// Set `SKIP_CDP_TESTS=1` environment variable to skip these tests.
+/// Set `SKIP_BROWSER_TESTS=1` environment variable to skip these tests.
 /// Set `CHROME_BIN=/path/to/chrome` to specify a custom Chrome binary.
-@Suite("CDP Integration Tests", .serialized)
-struct CDPIntegrationTests {
+@Suite("Remote Browser Integration Tests", .serialized)
+struct RemoteBrowserIntegrationTests {
 
-    /// Helper to check if CDP tests should run.
+    /// Helper to check if remote browser tests should run.
     private static var shouldSkip: Bool {
-        ProcessInfo.processInfo.environment["SKIP_CDP_TESTS"] != nil
+        ProcessInfo.processInfo.environment["SKIP_BROWSER_TESTS"] != nil
     }
 
-    /// Helper to launch Chrome and create a WKZombie instance.
+    /// Helper to launch Chrome and create a HeadlessBrowser instance.
     private static func launchBrowser(
-        waitStrategy: CDPWaitStrategy = .load,
+        waitStrategy: PageLoadStrategy = .load,
         timeout: TimeInterval = 30.0
-    ) async throws -> (WKZombie, Process) {
-        let (browser, process) = try await WKZombie.withChrome(
-            name: "CDPTest",
+    ) async throws -> (HeadlessBrowser, Process) {
+        let (browser, process) = try await HeadlessBrowser.withChrome(
+            name: "RemoteBrowserTest",
             timeoutInSeconds: timeout,
             waitStrategy: waitStrategy
         )
@@ -59,12 +59,12 @@ struct CDPIntegrationTests {
     @Test("Load example.com and verify HTML content")
     func loadExampleDotCom() async throws {
         guard !Self.shouldSkip else {
-            print("CDP_SKIP: SKIP_CDP_TESTS is set")
+            print("REMOTE_SKIP: SKIP_BROWSER_TESTS is set")
             return
         }
 
         let (browser, process) = try await Self.launchBrowser()
-        defer { CDPBrowserLauncher.terminate(process) }
+        defer { BrowserProcessLauncher.terminate(process) }
 
         let url = URL(string: "https://example.com")!
         let page: HTMLPage = try await browser.open(url).execute()
@@ -80,7 +80,7 @@ struct CDPIntegrationTests {
             #expect(h1s.first?.text == "Example Domain")
         }
 
-        print("CDP_INTEGRATION: example.com loaded successfully (\(html.count) chars)")
+        print("REMOTE_INTEGRATION: example.com loaded successfully (\(html.count) chars)")
     }
 
     // MARK: - JavaScript Execution Tests
@@ -90,7 +90,7 @@ struct CDPIntegrationTests {
         guard !Self.shouldSkip else { return }
 
         let (browser, process) = try await Self.launchBrowser()
-        defer { CDPBrowserLauncher.terminate(process) }
+        defer { BrowserProcessLauncher.terminate(process) }
 
         // Load a page first
         let url = URL(string: "https://example.com")!
@@ -100,7 +100,7 @@ struct CDPIntegrationTests {
         let title: JavaScriptResult = try await browser.execute("document.title").execute()
         #expect(title == "Example Domain", "document.title should be 'Example Domain'")
 
-        print("CDP_JS_EXEC: document.title = \(title)")
+        print("REMOTE_JS_EXEC: document.title = \(title)")
     }
 
     @Test("Execute arithmetic JavaScript")
@@ -108,7 +108,7 @@ struct CDPIntegrationTests {
         guard !Self.shouldSkip else { return }
 
         let (browser, process) = try await Self.launchBrowser()
-        defer { CDPBrowserLauncher.terminate(process) }
+        defer { BrowserProcessLauncher.terminate(process) }
 
         let url = URL(string: "https://example.com")!
         let _: HTMLPage = try await browser.open(url).execute()
@@ -122,7 +122,7 @@ struct CDPIntegrationTests {
         #expect(complexResult.contains("\"a\":1") || complexResult.contains("\"a\": 1"),
                 "Should return JSON string")
 
-        print("CDP_JS_ARITHMETIC: 1+1=\(result), JSON=\(complexResult)")
+        print("REMOTE_JS_ARITHMETIC: 1+1=\(result), JSON=\(complexResult)")
     }
 
     // MARK: - Heavy JavaScript Site Tests
@@ -135,7 +135,7 @@ struct CDPIntegrationTests {
             waitStrategy: .load,
             timeout: 45.0
         )
-        defer { CDPBrowserLauncher.terminate(process) }
+        defer { BrowserProcessLauncher.terminate(process) }
 
         // Use httpbin.org which returns HTML that we can verify
         let url = URL(string: "https://httpbin.org/html")!
@@ -148,10 +148,10 @@ struct CDPIntegrationTests {
         let h1Result: Result<[HTMLElement], ActionError> = page.findElements(.cssSelector("h1"))
         if case .success(let elements) = h1Result {
             #expect(!elements.isEmpty, "Should find h1 elements")
-            print("CDP_HTTPBIN: Found h1: \(elements.first?.text ?? "none")")
+            print("REMOTE_HTTPBIN: Found h1: \(elements.first?.text ?? "none")")
         }
 
-        print("CDP_JS_RENDERED: httpbin.org loaded (\(html.count) chars)")
+        print("REMOTE_JS_RENDERED: httpbin.org loaded (\(html.count) chars)")
     }
 
     @Test("Load page that requires JavaScript for content rendering")
@@ -162,7 +162,7 @@ struct CDPIntegrationTests {
             waitStrategy: .load,
             timeout: 45.0
         )
-        defer { CDPBrowserLauncher.terminate(process) }
+        defer { BrowserProcessLauncher.terminate(process) }
 
         // Use a page that injects content via JavaScript
         // We'll verify by executing JS to create DOM content, then reading it
@@ -184,7 +184,7 @@ struct CDPIntegrationTests {
         ).execute()
 
         #expect(dynamicText == "JS-Rendered Content", "Should read back dynamically created content")
-        print("CDP_DYNAMIC: Found JS-injected content: \(dynamicText)")
+        print("REMOTE_DYNAMIC: Found JS-injected content: \(dynamicText)")
     }
 
     // MARK: - PostAction Tests
@@ -194,7 +194,7 @@ struct CDPIntegrationTests {
         guard !Self.shouldSkip else { return }
 
         let (browser, process) = try await Self.launchBrowser()
-        defer { CDPBrowserLauncher.terminate(process) }
+        defer { BrowserProcessLauncher.terminate(process) }
 
         let url = URL(string: "https://example.com")!
         let start = Date()
@@ -202,7 +202,7 @@ struct CDPIntegrationTests {
         let elapsed = Date().timeIntervalSince(start)
 
         #expect(elapsed >= 0.9, "Should have waited at least ~1 second")
-        print("CDP_WAIT: Waited \(String(format: "%.2f", elapsed))s")
+        print("REMOTE_WAIT: Waited \(String(format: "%.2f", elapsed))s")
     }
 
     @Test("PostAction.validate waits for JS condition")
@@ -210,7 +210,7 @@ struct CDPIntegrationTests {
         guard !Self.shouldSkip else { return }
 
         let (browser, process) = try await Self.launchBrowser()
-        defer { CDPBrowserLauncher.terminate(process) }
+        defer { BrowserProcessLauncher.terminate(process) }
 
         let url = URL(string: "https://example.com")!
         let _: HTMLPage = try await browser.open(
@@ -218,7 +218,7 @@ struct CDPIntegrationTests {
         )(url).execute()
 
         // If we get here, validation passed
-        print("CDP_VALIDATE: document.readyState === 'complete' passed")
+        print("REMOTE_VALIDATE: document.readyState === 'complete' passed")
     }
 
     // MARK: - GitHub Pages Test (JS-Heavy)
@@ -231,7 +231,7 @@ struct CDPIntegrationTests {
             waitStrategy: .load,
             timeout: 45.0
         )
-        defer { CDPBrowserLauncher.terminate(process) }
+        defer { BrowserProcessLauncher.terminate(process) }
 
         let url = URL(string: "https://github.com/nicklockwood/SwiftFormat")!
 
@@ -245,29 +245,29 @@ struct CDPIntegrationTests {
             // Look for repository-related elements
             let readmeResult: Result<[HTMLElement], ActionError> = page.findElements(.cssSelector("article"))
             if case .success(let articles) = readmeResult {
-                print("CDP_GITHUB: Found \(articles.count) article elements")
+                print("REMOTE_GITHUB: Found \(articles.count) article elements")
             }
 
             // Check for the repo name somewhere in the page
             #expect(html.contains("SwiftFormat"), "Page should contain repo name")
 
-            print("CDP_GITHUB: github.com loaded successfully (\(html.count) chars)")
+            print("REMOTE_GITHUB: github.com loaded successfully (\(html.count) chars)")
         } catch {
-            print("CDP_GITHUB_ERROR: \(error) (may be rate-limited)")
+            print("REMOTE_GITHUB_ERROR: \(error) (may be rate-limited)")
         }
     }
 
     // MARK: - Uber Careers Test (Compare with HeadlessEngine)
 
-    @Test("Uber careers page with CDP engine (JS-rendered job listings)")
-    func uberCareersWithCDP() async throws {
+    @Test("Uber careers page with remote browser engine (JS-rendered job listings)")
+    func uberCareersWithRemoteBrowser() async throws {
         guard !Self.shouldSkip else { return }
 
         let (browser, process) = try await Self.launchBrowser(
             waitStrategy: .load,
             timeout: 60.0
         )
-        defer { CDPBrowserLauncher.terminate(process) }
+        defer { BrowserProcessLauncher.terminate(process) }
 
         let url = URL(string: "https://www.uber.com/us/en/careers/list/")!
 
@@ -294,15 +294,15 @@ struct CDPIntegrationTests {
                 let result: Result<[HTMLElement], ActionError> = page.findElements(.cssSelector(selector))
                 if case .success(let elements) = result, !elements.isEmpty {
                     totalFound += elements.count
-                    print("CDP_UBER: Selector '\(selector)' found \(elements.count) elements")
+                    print("REMOTE_UBER: Selector '\(selector)' found \(elements.count) elements")
                 }
             }
 
-            print("CDP_UBER: Total elements found: \(totalFound)")
-            print("CDP_UBER: HTML length: \(html.count)")
-            print("CDP_UBER: Note - CDP engine can render JS content that HeadlessEngine cannot")
+            print("REMOTE_UBER: Total elements found: \(totalFound)")
+            print("REMOTE_UBER: HTML length: \(html.count)")
+            print("REMOTE_UBER: Note - Remote browser engine can render JS content that HeadlessEngine cannot")
         } catch {
-            print("CDP_UBER_ERROR: \(error) (may be blocked or require additional wait)")
+            print("REMOTE_UBER_ERROR: \(error) (may be blocked or require additional wait)")
         }
     }
 
@@ -313,7 +313,7 @@ struct CDPIntegrationTests {
         guard !Self.shouldSkip else { return }
 
         let (browser, process) = try await Self.launchBrowser()
-        defer { CDPBrowserLauncher.terminate(process) }
+        defer { BrowserProcessLauncher.terminate(process) }
 
         // Load first page
         let url1 = URL(string: "https://example.com")!
@@ -328,7 +328,7 @@ struct CDPIntegrationTests {
         #expect(!html2.isEmpty)
         #expect(html2 != html1, "Second page should be different from first")
 
-        print("CDP_MULTI_NAV: Navigated between 2 pages successfully")
+        print("REMOTE_MULTI_NAV: Navigated between 2 pages successfully")
     }
 
     // MARK: - Current Content (inspect)
@@ -338,7 +338,7 @@ struct CDPIntegrationTests {
         guard !Self.shouldSkip else { return }
 
         let (browser, process) = try await Self.launchBrowser()
-        defer { CDPBrowserLauncher.terminate(process) }
+        defer { BrowserProcessLauncher.terminate(process) }
 
         let url = URL(string: "https://example.com")!
         let _: HTMLPage = try await browser.open(url).execute()
@@ -348,6 +348,6 @@ struct CDPIntegrationTests {
         let html = inspectedPage.data?.toString() ?? ""
         #expect(html.contains("Example Domain"))
 
-        print("CDP_INSPECT: inspect() returned current content (\(html.count) chars)")
+        print("REMOTE_INSPECT: inspect() returned current content (\(html.count) chars)")
     }
 }

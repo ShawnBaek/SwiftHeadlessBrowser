@@ -1,5 +1,5 @@
 //
-// CDPEngine.swift
+// RemoteBrowserEngine.swift
 //
 // Copyright (c) 2025 Shawn Baek
 //
@@ -22,19 +22,19 @@
 // THE SOFTWARE.
 
 import Foundation
-import WKZombie
+import HeadlessBrowserCore
 
-/// A BrowserEngine that communicates with a CDP-compatible browser
-/// (Chrome headless, Chromium, Lightpanda) over WebSocket.
+/// A BrowserEngine that communicates with a remote browser
+/// (Chrome headless, Chromium, Lightpanda) over WebSocket using the Chrome DevTools Protocol.
 ///
 /// Provides full JavaScript execution on any platform (macOS, Linux)
 /// without requiring WKWebView or system WebKit packages.
-public final class CDPEngine: BrowserEngine, @unchecked Sendable {
+public final class RemoteBrowserEngine: BrowserEngine, @unchecked Sendable {
 
     // MARK: - Properties
 
-    private let connection: CDPConnection
-    private let waitStrategy: CDPWaitStrategy
+    private let connection: RemoteBrowserConnection
+    private let waitStrategy: PageLoadStrategy
     private let _userAgent: UserAgent
     private let _timeoutInSeconds: TimeInterval
     private var currentData: Data?
@@ -49,9 +49,9 @@ public final class CDPEngine: BrowserEngine, @unchecked Sendable {
 
     // MARK: - Configuration
 
-    /// Configuration for creating a CDPEngine.
+    /// Configuration for creating a RemoteBrowserEngine.
     public struct Configuration: Sendable {
-        /// WebSocket URL of an already-running CDP endpoint.
+        /// WebSocket URL of an already-running remote browser endpoint.
         public var webSocketURL: URL
 
         /// User agent override.
@@ -61,13 +61,13 @@ public final class CDPEngine: BrowserEngine, @unchecked Sendable {
         public var timeoutInSeconds: TimeInterval
 
         /// Strategy for waiting for page loads.
-        public var waitStrategy: CDPWaitStrategy
+        public var waitStrategy: PageLoadStrategy
 
         public init(
             webSocketURL: URL,
             userAgent: UserAgent = .chromeMac,
             timeoutInSeconds: TimeInterval = 30.0,
-            waitStrategy: CDPWaitStrategy = .load
+            waitStrategy: PageLoadStrategy = .load
         ) {
             self.webSocketURL = webSocketURL
             self.userAgent = userAgent
@@ -78,23 +78,23 @@ public final class CDPEngine: BrowserEngine, @unchecked Sendable {
 
     // MARK: - Initialization
 
-    /// Create a CDPEngine with a configuration.
+    /// Create a RemoteBrowserEngine with a configuration.
     public init(configuration: Configuration) async throws {
         self._userAgent = configuration.userAgent
         self._timeoutInSeconds = configuration.timeoutInSeconds
         self.waitStrategy = configuration.waitStrategy
-        self.connection = CDPConnection()
+        self.connection = RemoteBrowserConnection()
 
         try await connection.connect(to: configuration.webSocketURL)
         try await enableDomains()
     }
 
-    /// Create a CDPEngine with an existing connection (for testing).
+    /// Create a RemoteBrowserEngine with an existing connection (for testing).
     public init(
-        connection: CDPConnection,
+        connection: RemoteBrowserConnection,
         userAgent: UserAgent = .chromeMac,
         timeoutInSeconds: TimeInterval = 30.0,
-        waitStrategy: CDPWaitStrategy = .load
+        waitStrategy: PageLoadStrategy = .load
     ) {
         self._userAgent = userAgent
         self._timeoutInSeconds = timeoutInSeconds
@@ -153,7 +153,7 @@ public final class CDPEngine: BrowserEngine, @unchecked Sendable {
         // Check for navigation error
         if let result = response.result,
            let errorText = result["errorText"] as? String {
-            throw CDPError.navigationFailed(errorText)
+            throw RemoteBrowserError.navigationFailed(errorText)
         }
 
         // Wait for page to be ready based on strategy
@@ -239,7 +239,7 @@ public final class CDPEngine: BrowserEngine, @unchecked Sendable {
 
     // MARK: - Wait Strategies
 
-    private func waitForPageReady(loadWaiter: CDPConnection.EventWaiter) async throws {
+    private func waitForPageReady(loadWaiter: RemoteBrowserConnection.EventWaiter) async throws {
         switch waitStrategy {
         case .load:
             try await loadWaiter.wait(timeout: _timeoutInSeconds)
@@ -290,7 +290,7 @@ public final class CDPEngine: BrowserEngine, @unchecked Sendable {
             try await Task.sleep(nanoseconds: 200_000_000) // 200ms poll
         }
 
-        throw CDPError.timeout("Timed out waiting for selector: \(selector)")
+        throw RemoteBrowserError.timeout("Timed out waiting for selector: \(selector)")
     }
 
     private func waitForJSCondition(_ condition: String) async throws {
@@ -304,7 +304,7 @@ public final class CDPEngine: BrowserEngine, @unchecked Sendable {
             try await Task.sleep(nanoseconds: 200_000_000)
         }
 
-        throw CDPError.timeout("Timed out waiting for JS condition: \(condition)")
+        throw RemoteBrowserError.timeout("Timed out waiting for JS condition: \(condition)")
     }
 
     // MARK: - PostAction Handling
@@ -341,7 +341,7 @@ public final class CDPEngine: BrowserEngine, @unchecked Sendable {
 
     // MARK: - Result Extraction
 
-    private func extractJSResult(from response: CDPResponse) -> String {
+    private func extractJSResult(from response: BrowserResponse) -> String {
         guard let result = response.result,
               let remoteObject = result["result"] as? [String: Any] else {
             return ""
@@ -379,7 +379,7 @@ public final class CDPEngine: BrowserEngine, @unchecked Sendable {
 
     // MARK: - Cleanup
 
-    /// Disconnect from the CDP browser.
+    /// Disconnect from the remote browser.
     public func disconnect() async {
         await connection.disconnect()
     }

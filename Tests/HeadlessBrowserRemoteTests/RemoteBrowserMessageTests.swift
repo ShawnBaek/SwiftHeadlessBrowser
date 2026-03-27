@@ -1,5 +1,5 @@
 //
-// CDPMessageTests.swift
+// RemoteBrowserMessageTests.swift
 //
 // Copyright (c) 2025 Shawn Baek
 //
@@ -23,18 +23,18 @@
 
 import Testing
 import Foundation
-@testable import WKZombieCDP
+@testable import HeadlessBrowserRemote
 
-// MARK: - CDP Message Encoding/Decoding Tests
+// MARK: - Remote Browser Message Encoding/Decoding Tests
 
-@Suite("CDP Message Tests")
-struct CDPMessageTests {
+@Suite("Remote Browser Message Tests")
+struct RemoteBrowserMessageTests {
 
-    // MARK: - CDPRequest Tests
+    // MARK: - BrowserCommand Tests
 
-    @Test("CDPRequest serializes to JSON correctly")
+    @Test("BrowserCommand serializes to JSON correctly")
     func requestSerialization() throws {
-        let request = CDPRequest(id: 1, method: "Page.navigate", params: ["url": "https://example.com"])
+        let request = BrowserCommand(id: 1, method: "Page.navigate", params: ["url": "https://example.com"])
         let json = try request.toJSON()
         let dict = try JSONSerialization.jsonObject(with: json) as! [String: Any]
 
@@ -45,9 +45,9 @@ struct CDPMessageTests {
         #expect(params?["url"] as? String == "https://example.com")
     }
 
-    @Test("CDPRequest without params serializes correctly")
+    @Test("BrowserCommand without params serializes correctly")
     func requestWithoutParams() throws {
-        let request = CDPRequest(id: 42, method: "Page.enable")
+        let request = BrowserCommand(id: 42, method: "Page.enable")
         let json = try request.toJSON()
         let dict = try JSONSerialization.jsonObject(with: json) as! [String: Any]
 
@@ -56,9 +56,9 @@ struct CDPMessageTests {
         #expect(dict["params"] == nil)
     }
 
-    @Test("CDPRequest with nested params")
+    @Test("BrowserCommand with nested params")
     func requestWithNestedParams() throws {
-        let request = CDPRequest(
+        let request = BrowserCommand(
             id: 3,
             method: "Runtime.evaluate",
             params: [
@@ -77,15 +77,15 @@ struct CDPMessageTests {
         #expect(params?["awaitPromise"] as? Bool == false)
     }
 
-    // MARK: - CDPIncoming Parse Tests
+    // MARK: - IncomingMessage Parse Tests
 
-    @Test("Parse CDP response message")
+    @Test("Parse remote browser response message")
     func parseResponse() throws {
         let json = """
         {"id": 1, "result": {"frameId": "ABC123", "loaderId": "DEF456"}}
         """.data(using: .utf8)!
 
-        let incoming = try CDPIncoming.parse(json)
+        let incoming = try IncomingMessage.parse(json)
 
         guard case .response(let response) = incoming else {
             Issue.record("Expected response, got event")
@@ -98,13 +98,13 @@ struct CDPMessageTests {
         #expect(response.error == nil)
     }
 
-    @Test("Parse CDP response with error")
+    @Test("Parse remote browser response with error")
     func parseResponseWithError() throws {
         let json = """
         {"id": 2, "error": {"code": -32600, "message": "Invalid Request"}}
         """.data(using: .utf8)!
 
-        let incoming = try CDPIncoming.parse(json)
+        let incoming = try IncomingMessage.parse(json)
 
         guard case .response(let response) = incoming else {
             Issue.record("Expected response, got event")
@@ -117,13 +117,13 @@ struct CDPMessageTests {
         #expect(response.error?.message == "Invalid Request")
     }
 
-    @Test("Parse CDP event message")
+    @Test("Parse remote browser event message")
     func parseEvent() throws {
         let json = """
         {"method": "Page.loadEventFired", "params": {"timestamp": 12345.678}}
         """.data(using: .utf8)!
 
-        let incoming = try CDPIncoming.parse(json)
+        let incoming = try IncomingMessage.parse(json)
 
         guard case .event(let event) = incoming else {
             Issue.record("Expected event, got response")
@@ -134,13 +134,13 @@ struct CDPMessageTests {
         #expect(event.params?["timestamp"] as? Double == 12345.678)
     }
 
-    @Test("Parse CDP event without params")
+    @Test("Parse remote browser event without params")
     func parseEventNoParams() throws {
         let json = """
         {"method": "Page.domContentEventFired"}
         """.data(using: .utf8)!
 
-        let incoming = try CDPIncoming.parse(json)
+        let incoming = try IncomingMessage.parse(json)
 
         guard case .event(let event) = incoming else {
             Issue.record("Expected event, got response")
@@ -151,13 +151,13 @@ struct CDPMessageTests {
         #expect(event.params == nil)
     }
 
-    @Test("Parse CDP response with empty result")
+    @Test("Parse remote browser response with empty result")
     func parseEmptyResult() throws {
         let json = """
         {"id": 5, "result": {}}
         """.data(using: .utf8)!
 
-        let incoming = try CDPIncoming.parse(json)
+        let incoming = try IncomingMessage.parse(json)
 
         guard case .response(let response) = incoming else {
             Issue.record("Expected response")
@@ -175,7 +175,7 @@ struct CDPMessageTests {
         {"id": 10, "result": {"result": {"type": "string", "value": "Hello World"}}}
         """.data(using: .utf8)!
 
-        let incoming = try CDPIncoming.parse(json)
+        let incoming = try IncomingMessage.parse(json)
 
         guard case .response(let response) = incoming else {
             Issue.record("Expected response")
@@ -193,7 +193,7 @@ struct CDPMessageTests {
         {"id": 11, "result": {"result": {"type": "boolean", "value": true}}}
         """.data(using: .utf8)!
 
-        let incoming = try CDPIncoming.parse(json)
+        let incoming = try IncomingMessage.parse(json)
 
         guard case .response(let response) = incoming else {
             Issue.record("Expected response")
@@ -211,7 +211,7 @@ struct CDPMessageTests {
         {"id": 12, "result": {"result": {"type": "number", "value": 42, "description": "42"}}}
         """.data(using: .utf8)!
 
-        let incoming = try CDPIncoming.parse(json)
+        let incoming = try IncomingMessage.parse(json)
 
         guard case .response(let response) = incoming else {
             Issue.record("Expected response")
@@ -230,7 +230,7 @@ struct CDPMessageTests {
         let data = "not json".data(using: .utf8)!
 
         #expect(throws: (any Error).self) {
-            try CDPIncoming.parse(data)
+            try IncomingMessage.parse(data)
         }
     }
 
@@ -240,8 +240,8 @@ struct CDPMessageTests {
         {"someKey": "someValue"}
         """.data(using: .utf8)!
 
-        #expect(throws: CDPError.self) {
-            try CDPIncoming.parse(json)
+        #expect(throws: RemoteBrowserError.self) {
+            try IncomingMessage.parse(json)
         }
     }
 
@@ -249,8 +249,8 @@ struct CDPMessageTests {
     func parseNonObjectJSON() {
         let json = "[1, 2, 3]".data(using: .utf8)!
 
-        #expect(throws: CDPError.self) {
-            try CDPIncoming.parse(json)
+        #expect(throws: RemoteBrowserError.self) {
+            try IncomingMessage.parse(json)
         }
     }
 
@@ -262,7 +262,7 @@ struct CDPMessageTests {
         {"method": "Network.requestWillBeSent", "params": {"requestId": "req1", "request": {"url": "https://example.com/api"}}}
         """.data(using: .utf8)!
 
-        let incoming = try CDPIncoming.parse(json)
+        let incoming = try IncomingMessage.parse(json)
 
         guard case .event(let event) = incoming else {
             Issue.record("Expected event")
@@ -279,7 +279,7 @@ struct CDPMessageTests {
         {"method": "Network.loadingFinished", "params": {"requestId": "req1", "encodedDataLength": 1024}}
         """.data(using: .utf8)!
 
-        let incoming = try CDPIncoming.parse(json)
+        let incoming = try IncomingMessage.parse(json)
 
         guard case .event(let event) = incoming else {
             Issue.record("Expected event")
@@ -290,36 +290,36 @@ struct CDPMessageTests {
         #expect(event.params?["requestId"] as? String == "req1")
     }
 
-    // MARK: - CDPResponseError Tests
+    // MARK: - BrowserResponseError Tests
 
-    @Test("CDPResponseError.from parses valid error dict")
+    @Test("BrowserResponseError.from parses valid error dict")
     func responseErrorFromDict() {
         let dict: [String: Any] = ["code": -32601, "message": "Method not found"]
-        let error = CDPResponseError.from(dict)
+        let error = BrowserResponseError.from(dict)
 
         #expect(error?.code == -32601)
         #expect(error?.message == "Method not found")
     }
 
-    @Test("CDPResponseError.from returns nil for invalid input")
+    @Test("BrowserResponseError.from returns nil for invalid input")
     func responseErrorFromNil() {
-        #expect(CDPResponseError.from(nil) == nil)
-        #expect(CDPResponseError.from("not a dict") == nil)
-        #expect(CDPResponseError.from(["code": 123]) == nil) // missing message
+        #expect(BrowserResponseError.from(nil) == nil)
+        #expect(BrowserResponseError.from("not a dict") == nil)
+        #expect(BrowserResponseError.from(["code": 123]) == nil) // missing message
     }
 
-    // MARK: - CDPError Description Tests
+    // MARK: - RemoteBrowserError Description Tests
 
-    @Test("CDPError debug descriptions are meaningful")
+    @Test("RemoteBrowserError debug descriptions are meaningful")
     func errorDescriptions() {
-        let errors: [(CDPError, String)] = [
-            (.connectionFailed("timeout"), "CDP Connection Failed: timeout"),
-            (.browserLaunchFailed("not found"), "CDP Browser Launch Failed: not found"),
-            (.protocolError(-32600, "bad request"), "CDP Protocol Error (-32600): bad request"),
-            (.disconnected, "CDP Disconnected"),
-            (.malformedMessage("bad json"), "CDP Malformed Message: bad json"),
-            (.timeout("30s"), "CDP Timeout: 30s"),
-            (.navigationFailed("net::ERR_NAME_NOT_RESOLVED"), "CDP Navigation Failed: net::ERR_NAME_NOT_RESOLVED")
+        let errors: [(RemoteBrowserError, String)] = [
+            (.connectionFailed("timeout"), "Remote Browser Connection Failed: timeout"),
+            (.browserLaunchFailed("not found"), "Remote Browser Launch Failed: not found"),
+            (.protocolError(-32600, "bad request"), "Remote Browser Protocol Error (-32600): bad request"),
+            (.disconnected, "Remote Browser Disconnected"),
+            (.malformedMessage("bad json"), "Remote Browser Malformed Message: bad json"),
+            (.timeout("30s"), "Remote Browser Timeout: 30s"),
+            (.navigationFailed("net::ERR_NAME_NOT_RESOLVED"), "Remote Browser Navigation Failed: net::ERR_NAME_NOT_RESOLVED")
         ]
 
         for (error, expected) in errors {
@@ -328,15 +328,15 @@ struct CDPMessageTests {
     }
 }
 
-// MARK: - CDPWaitStrategy Tests
+// MARK: - PageLoadStrategy Tests
 
-@Suite("CDP Wait Strategy Tests")
-struct CDPWaitStrategyTests {
+@Suite("Remote Browser Page Load Strategy Tests")
+struct PageLoadStrategyTests {
 
-    @Test("Wait strategies can be created")
+    @Test("Page load strategies can be created")
     func createStrategies() {
         // Verify all strategy variants compile and can be created
-        let strategies: [CDPWaitStrategy] = [
+        let strategies: [PageLoadStrategy] = [
             .load,
             .domContentLoaded,
             .networkIdle(idleTime: 0.5),
