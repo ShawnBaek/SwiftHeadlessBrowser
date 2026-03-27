@@ -23,38 +23,27 @@
 
 /// SwiftHeadlessWebKit - A cross-platform headless web browser for Swift.
 ///
-/// This unified module provides:
-/// - **HeadlessBrowser**: Core browser class with HTML parsing (all platforms)
-/// - **RemoteBrowserEngine**: Full JavaScript via Chrome/Chromium headless (all platforms)
-/// - **WebKitEngine**: WKWebView-based rendering (Apple platforms only)
+/// Two modules:
+/// - **HeadlessBrowserCore**: `HeadlessBrowser` class, HTML parsing, `HeadlessEngine` (HTTP-only)
+/// - **HeadlessBrowserRemote**: `RemoteBrowserEngine` — full JavaScript via Chrome/Chromium headless
 ///
-/// ## Quick Start
+/// ## Quick Start (with JavaScript)
 ///
 /// ```swift
 /// import SwiftHeadlessWebKit
 ///
-/// let browser = HeadlessBrowser()
-/// let page: HTMLPage = try await browser.open(url: myURL).execute()
-/// let elements = page.findElements(.cssSelector("a.link"))
+/// let (browser, process) = try await HeadlessBrowser.withChrome()
+/// defer { BrowserProcessLauncher.terminate(process) }
+///
+/// let page: HTMLPage = try await browser.open(myURL).execute()
 /// ```
 ///
-/// ## Custom Configuration
+/// ## HTTP-only (no JavaScript, no Chrome needed)
 ///
 /// ```swift
-/// let engine = HeadlessEngine(
-///     userAgent: "MyBot/1.0",
-///     timeoutInSeconds: 30.0
-/// )
-/// let browser = HeadlessBrowser(name: "MyBot", engine: engine)
+/// let browser = HeadlessBrowser()
+/// let page: HTMLPage = try await browser.open(myURL).execute()
 /// ```
 
-// Re-export core module (available on all platforms)
 @_exported import HeadlessBrowserCore
-
-// Re-export remote browser engine (available on all platforms - full JavaScript support via Chrome DevTools Protocol)
 @_exported import HeadlessBrowserRemote
-
-// Re-export Apple-specific module (WebKitEngine with WKWebView)
-#if os(macOS) || os(iOS) || os(tvOS) || os(watchOS) || os(visionOS)
-@_exported import HeadlessBrowserApple
-#endif

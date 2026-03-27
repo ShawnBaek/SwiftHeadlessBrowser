@@ -12,7 +12,6 @@ let package = Package(
         .visionOS(.v1)
     ],
     products: [
-        // Unified product - automatically uses correct engine per platform
         .library(
             name: "SwiftHeadlessWebKit",
             targets: ["SwiftHeadlessWebKit"]
@@ -23,19 +22,18 @@ let package = Package(
         .package(url: "https://github.com/vapor/websocket-kit.git", from: "2.15.0")
     ],
     targets: [
-        // Unified target that re-exports platform-specific modules
+        // Unified target that re-exports all modules
         .target(
             name: "SwiftHeadlessWebKit",
             dependencies: [
                 "HeadlessBrowserCore",
-                "HeadlessBrowserRemote",
-                .target(name: "HeadlessBrowserApple", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS]))
+                "HeadlessBrowserRemote"
             ],
             swiftSettings: [
                 .swiftLanguageMode(.v6)
             ]
         ),
-        // Core cross-platform library
+        // Core cross-platform library (HTML parsing, HeadlessEngine)
         .target(
             name: "HeadlessBrowserCore",
             dependencies: ["SwiftSoup"],
@@ -43,15 +41,7 @@ let package = Package(
                 .swiftLanguageMode(.v6)
             ]
         ),
-        // Apple-specific extensions (WebKit rendering)
-        .target(
-            name: "HeadlessBrowserApple",
-            dependencies: ["HeadlessBrowserCore"],
-            swiftSettings: [
-                .swiftLanguageMode(.v6)
-            ]
-        ),
-        // Remote browser engine (all platforms - full JavaScript support via Chrome DevTools Protocol)
+        // Remote browser engine (full JavaScript support via Chrome DevTools Protocol)
         .target(
             name: "HeadlessBrowserRemote",
             dependencies: [
@@ -62,17 +52,9 @@ let package = Package(
                 .swiftLanguageMode(.v6)
             ]
         ),
-        // Tests using Swift Testing framework
         .testTarget(
             name: "HeadlessBrowserCoreTests",
             dependencies: ["HeadlessBrowserCore"],
-            resources: [
-                .copy("Resources")
-            ]
-        ),
-        .testTarget(
-            name: "HeadlessBrowserAppleTests",
-            dependencies: ["HeadlessBrowserApple"],
             resources: [
                 .copy("Resources")
             ]
