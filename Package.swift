@@ -33,7 +33,7 @@ let package = Package(
                 .swiftLanguageMode(.v6)
             ]
         ),
-        // Core cross-platform library (HTML parsing, HeadlessEngine)
+        // Core library (HeadlessBrowser class, HTML parsing, BrowserEngine protocol)
         .target(
             name: "HeadlessBrowserCore",
             dependencies: ["SwiftSoup"],
@@ -53,15 +53,8 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "HeadlessBrowserCoreTests",
-            dependencies: ["HeadlessBrowserCore"],
-            resources: [
-                .copy("Resources")
-            ]
-        ),
-        .testTarget(
-            name: "HeadlessBrowserRemoteTests",
-            dependencies: ["HeadlessBrowserRemote"]
+            name: "SwiftHeadlessBrowserTests",
+            dependencies: ["HeadlessBrowserCore", "HeadlessBrowserRemote"]
         )
     ]
 )
