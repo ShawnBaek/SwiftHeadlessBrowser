@@ -110,28 +110,40 @@ public final class RemoteBrowserEngine: BrowserEngine, @unchecked Sendable {
         // Enable Page domain for navigation events
         _ = try await connection.send(method: "Page.enable", timeout: _timeoutInSeconds)
 
-        // Enable Network domain for network idle detection
-        _ = try await connection.send(method: "Network.enable", timeout: _timeoutInSeconds)
-
-        // Enable Runtime domain
+        // Enable Runtime domain for JS execution
         _ = try await connection.send(method: "Runtime.enable", timeout: _timeoutInSeconds)
 
-        // Set user agent override
-        _ = try await connection.send(
-            method: "Network.setUserAgentOverride",
-            params: ["userAgent": _userAgent.rawValue],
-            timeout: _timeoutInSeconds
-        )
+        // Only enable Network domain when needed for networkIdle strategy
+        // Network events flood the WebSocket and can cause disconnects
+        let needsNetwork: Bool
+        switch waitStrategy {
+        case .networkIdle, .loadAndNetworkIdle:
+            needsNetwork = true
+        default:
+            needsNetwork = false
+        }
 
-        // Track network requests for idle detection
-        connection.on("Network.requestWillBeSent") { [weak self] _ in
-            self?.inflightRequests += 1
+        if needsNetwork {
+            _ = try await connection.send(method: "Network.enable", timeout: _timeoutInSeconds)
+
+            connection.on("Network.requestWillBeSent") { [weak self] _ in
+                self?.inflightRequests += 1
+            }
+            connection.on("Network.loadingFinished") { [weak self] _ in
+                self?.inflightRequests = max(0, (self?.inflightRequests ?? 1) - 1)
+            }
+            connection.on("Network.loadingFailed") { [weak self] _ in
+                self?.inflightRequests = max(0, (self?.inflightRequests ?? 1) - 1)
+            }
         }
-        connection.on("Network.loadingFinished") { [weak self] _ in
-            self?.inflightRequests = max(0, (self?.inflightRequests ?? 1) - 1)
-        }
-        connection.on("Network.loadingFailed") { [weak self] _ in
-            self?.inflightRequests = max(0, (self?.inflightRequests ?? 1) - 1)
+
+        // Set user agent (requires Network domain to be enabled)
+        if needsNetwork {
+            _ = try await connection.send(
+                method: "Network.setUserAgentOverride",
+                params: ["userAgent": _userAgent.rawValue],
+                timeout: _timeoutInSeconds
+            )
         }
 
         domainsEnabled = true
@@ -150,10 +162,12 @@ public final class RemoteBrowserEngine: BrowserEngine, @unchecked Sendable {
             timeout: _timeoutInSeconds
         )
 
-        // Check for navigation error (but not empty errorText — Chrome sometimes returns "" on success)
+        // Check for hard navigation errors (DNS failure, connection refused, etc.)
+        // net::ERR_ABORTED is normal for pages that redirect via JavaScript — don't treat as fatal
         if let result = response.result,
            let errorText = result["errorText"] as? String,
-           !errorText.isEmpty {
+           !errorText.isEmpty,
+           errorText != "net::ERR_ABORTED" {
             throw RemoteBrowserError.navigationFailed(errorText)
         }
 

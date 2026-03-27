@@ -47,7 +47,7 @@ public struct BrowserProcessLauncher: Sendable {
         let actualPort = port == 0 ? findAvailablePort() : port
 
         let tempDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("chrome-remote-\(ProcessInfo.processInfo.processIdentifier)")
+            .appendingPathComponent("chrome-headless-\(UUID().uuidString)")
             .path
 
         var args = [
@@ -55,6 +55,7 @@ public struct BrowserProcessLauncher: Sendable {
             "--disable-gpu",
             "--no-sandbox",
             "--disable-extensions",
+            "--disable-component-extensions-with-background-pages",
             "--disable-background-networking",
             "--disable-default-apps",
             "--disable-sync",
@@ -63,16 +64,18 @@ public struct BrowserProcessLauncher: Sendable {
             "--metrics-recording-only",
             "--no-first-run",
             "--remote-debugging-port=\(actualPort)",
-            "--user-data-dir=\(tempDir)",
-            "about:blank"
+            "--user-data-dir=\(tempDir)"
         ]
         args.append(contentsOf: additionalArgs)
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: chromePath)
         process.arguments = args
+
+        // Capture stderr to detect Chrome startup issues
+        let stderrPipe = Pipe()
         process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
+        process.standardError = stderrPipe
 
         do {
             try process.run()
@@ -81,7 +84,18 @@ public struct BrowserProcessLauncher: Sendable {
         }
 
         // Wait for remote browser endpoint to become available
-        let wsURL = try await discoverWebSocketURL(host: "127.0.0.1", port: actualPort, timeout: 15.0)
+        let wsURL: URL
+        do {
+            wsURL = try await discoverWebSocketURL(host: "127.0.0.1", port: actualPort, timeout: 15.0)
+        } catch {
+            // Read Chrome stderr for diagnostics
+            let stderrData = stderrPipe.fileHandleForReading.availableData
+            let stderrText = String(data: stderrData, encoding: .utf8) ?? ""
+            if !stderrText.isEmpty {
+                throw RemoteBrowserError.browserLaunchFailed("Chrome stderr: \(stderrText.prefix(500))")
+            }
+            throw error
+        }
 
         return (process, wsURL)
     }
