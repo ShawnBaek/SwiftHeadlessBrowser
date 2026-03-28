@@ -7,16 +7,18 @@
 
 A **headless browser** for Swift with **full JavaScript execution** on macOS and Linux.
 
-Controls Chrome/Chromium headless via [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/) to render JS-heavy websites (React, Next.js, SPAs) and extract structured data.
+No Chrome required. Uses [Lightpanda](https://lightpanda.io/) — auto-downloaded on first run.
 
-## Verified Sites
+## Test Results
 
 ```
 ANTHROPIC: id=5023394008 title=Anthropic AI Safety Fellow
 ANTHROPIC: id=5062955008 title=Applied Safety Research Engineer, Safeguards
-UBER:      id=152401     title=Sr Staff Engineer
-UBER:      id=155529     title=Engineering Manager, Competitive Data Platform
+UBER:      id=153599     title=Data Scientist - Risk
+UBER:      id=157663     title=2026 Account Management Intern, Amsterdam
 ```
+
+9 tests, 4 suites, **2.6 seconds**.
 
 ---
 
@@ -32,8 +34,6 @@ dependencies: [
 .target(name: "YourApp", dependencies: ["SwiftHeadlessBrowser"])
 ```
 
-**Requires Chrome/Chromium installed** on the machine.
-
 ---
 
 ## Usage
@@ -41,9 +41,8 @@ dependencies: [
 ```swift
 import SwiftHeadlessBrowser
 
-// Launch Chrome headless and connect
-let (browser, process) = try await HeadlessBrowser.withChrome()
-defer { BrowserProcessLauncher.terminate(process) }
+// Lightpanda auto-downloads on first use (~18MB)
+let browser = try await HeadlessBrowser.create()
 
 // Load a JS-rendered page
 let page: HTMLPage = try await browser.open(
@@ -59,41 +58,28 @@ if case .success(let elements) = links {
         print("id=\(id) title=\(title)")
     }
 }
+```
 
-// Execute JavaScript directly
+### With Chrome (optional)
+
+```swift
+let (browser, process) = try await HeadlessBrowser.withChrome()
+defer { BrowserProcessLauncher.terminate(process) }
+
+let page: HTMLPage = try await browser.open(url).execute()
 let title: String = try await browser.execute("document.title").execute()
 ```
 
 ---
 
-## Page Load Strategies
+## Page Load Strategies (Chrome only)
 
 ```swift
-// Wait for load event (default)
 HeadlessBrowser.withChrome(waitStrategy: .load)
-
-// Wait for network idle (good for SPAs)
 HeadlessBrowser.withChrome(waitStrategy: .networkIdle(idleTime: 0.5))
-
-// Wait for a CSS selector to appear
 HeadlessBrowser.withChrome(waitStrategy: .selector("#job-list"))
-
-// Wait for a JS condition
-HeadlessBrowser.withChrome(waitStrategy: .jsCondition("window.dataLoaded === true"))
+HeadlessBrowser.withChrome(waitStrategy: .jsCondition("window.dataLoaded"))
 ```
-
----
-
-## CSS Selectors
-
-| Selector | Example |
-|----------|---------|
-| `.id("value")` | `.id("header")` |
-| `.class("value")` | `.class("job-card")` |
-| `.name("value")` | `.name("email")` |
-| `.cssSelector("query")` | `.cssSelector("a[href*='/jobs/']")` |
-| `.attribute("key", "val")` | `.attribute("data-id", "123")` |
-| `.contains("key", "val")` | `.contains("href", "/careers/")` |
 
 ---
 
@@ -101,21 +87,18 @@ HeadlessBrowser.withChrome(waitStrategy: .jsCondition("window.dataLoaded === tru
 
 ```
 SwiftHeadlessBrowser
-├── HeadlessBrowserCore      — HeadlessBrowser class, BrowserEngine protocol, HTML parsing (SwiftSoup)
-└── HeadlessBrowserRemote    — RemoteBrowserEngine: Chrome DevTools Protocol over Foundation WebSocket
+├── HeadlessBrowserCore      — HeadlessBrowser, BrowserEngine protocol, HTML parsing
+└── HeadlessBrowserRemote    — LightpandaEngine (default), RemoteBrowserEngine (Chrome CDP)
 ```
 
-**Dependencies:** [SwiftSoup](https://github.com/scinfu/SwiftSoup) only. No swift-nio, no Vapor.
-
----
+**Dependencies:** [SwiftSoup](https://github.com/scinfu/SwiftSoup) only.
 
 ## How It Works
 
-1. `HeadlessBrowser.withChrome()` launches Chrome in `--headless=new` mode
-2. Connects via WebSocket (`URLSessionWebSocketTask`) to Chrome DevTools Protocol
-3. `Page.navigate` loads the URL, waits for `Page.loadEventFired`
-4. `Runtime.evaluate("document.documentElement.outerHTML")` gets the fully rendered DOM
-5. SwiftSoup parses the HTML for element extraction
+1. `HeadlessBrowser.create()` downloads Lightpanda to `~/.cache/swift-headless-browser/` (first run only)
+2. Runs `lightpanda fetch --dump html` as a subprocess — renders full JS
+3. SwiftSoup parses the returned HTML for element extraction
+4. No WebSocket, no Chrome, no external dependencies
 
 ---
 

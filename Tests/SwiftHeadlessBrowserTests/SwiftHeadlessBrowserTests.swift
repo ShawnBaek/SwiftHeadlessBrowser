@@ -162,21 +162,10 @@ struct ProtocolMessageTests {
     }
 }
 
-// MARK: - Integration Tests (require Chrome)
+// MARK: - Integration Tests (Lightpanda — no Chrome needed)
 
 @Suite("Integration Tests", .serialized)
 struct IntegrationTests {
-
-    private static func launch(
-        waitStrategy: PageLoadStrategy = .load,
-        timeout: TimeInterval = 30.0
-    ) async throws -> (HeadlessBrowser, Process) {
-        try await HeadlessBrowser.withChrome(
-            name: "Test",
-            timeoutInSeconds: timeout,
-            waitStrategy: waitStrategy
-        )
-    }
 
     struct Job {
         let id: String
@@ -201,11 +190,10 @@ struct IntegrationTests {
 
     @Test("Anthropic (Greenhouse) — extract jobs with id and title")
     func anthropicJobs() async throws {
-        let (browser, process) = try await Self.launch(timeout: 30.0)
-        defer { BrowserProcessLauncher.terminate(process) }
+        let browser = try await HeadlessBrowser.create()
 
         let url = URL(string: "https://boards.greenhouse.io/anthropic")!
-        let page: HTMLPage = try await browser.open(then: .wait(5.0))(url).execute()
+        let page: HTMLPage = try await browser.open(url).execute()
 
         let jobs = Self.extractJobs(from: page, linkSelector: "a[href*='/jobs/']")
         #expect(!jobs.isEmpty, "Should find at least 1 job on Anthropic Greenhouse")
@@ -216,11 +204,10 @@ struct IntegrationTests {
 
     @Test("Uber — extract jobs with id and title")
     func uberCareers() async throws {
-        let (browser, process) = try await Self.launch(timeout: 30.0)
-        defer { BrowserProcessLauncher.terminate(process) }
+        let browser = try await HeadlessBrowser.create()
 
         let url = URL(string: "https://www.uber.com/us/en/careers/list/")!
-        let page: HTMLPage = try await browser.open(then: .wait(8.0))(url).execute()
+        let page: HTMLPage = try await browser.open(url).execute()
 
         let jobs = Self.extractJobs(from: page, linkSelector: "a[href*='/careers/']")
         #expect(!jobs.isEmpty, "Should find at least 1 job on Uber")

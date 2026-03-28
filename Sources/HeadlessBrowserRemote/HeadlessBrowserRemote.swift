@@ -143,4 +143,33 @@ public extension HeadlessBrowser {
 
         return (browser, process)
     }
+
+    /// Creates a HeadlessBrowser using Lightpanda (auto-downloaded on first use).
+    ///
+    /// This is the simplest way to use SwiftHeadlessBrowser — no Chrome installation needed.
+    /// Lightpanda is automatically downloaded to `~/.cache/swift-headless-browser/` on first use.
+    ///
+    /// ```swift
+    /// let browser = try await HeadlessBrowser.create()
+    /// let page: HTMLPage = try await browser.open(myURL).execute()
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - name: An optional name/identifier for this instance.
+    ///   - userAgent: The user agent to use. Defaults to `.chromeMac`.
+    ///   - timeoutInSeconds: Timeout for operations. Defaults to 30.
+    /// - Returns: A configured HeadlessBrowser with full JavaScript support.
+    static func create(
+        name: String? = nil,
+        userAgent: UserAgent = .chromeMac,
+        timeoutInSeconds: TimeInterval = 30.0
+    ) async throws -> HeadlessBrowser {
+        let binaryPath = try await LightpandaEngine.ensureInstalled()
+        let engine = LightpandaEngine(
+            binaryPath: binaryPath,
+            userAgent: userAgent,
+            timeoutInSeconds: timeoutInSeconds
+        )
+        return HeadlessBrowser(name: name, engine: engine)
+    }
 }
