@@ -7,18 +7,18 @@
 
 A **headless browser** for Swift with **full JavaScript execution** on macOS and Linux.
 
-No Chrome required. Uses [Lightpanda](https://lightpanda.io/) — auto-downloaded on first run.
+Powered by [Lightpanda](https://lightpanda.io/) — auto-downloaded on first run. No Chrome, no system dependencies.
 
 ## Test Results
 
 ```
 ANTHROPIC: id=5023394008 title=Anthropic AI Safety Fellow
 ANTHROPIC: id=5062955008 title=Applied Safety Research Engineer, Safeguards
-UBER:      id=153599     title=Data Scientist - Risk
-UBER:      id=157663     title=2026 Account Management Intern, Amsterdam
+SPOTIFY:   id=31b21dea   title=Apply
+SPOTIFY:   id=7426b51c   title=Apply
 ```
 
-9 tests, 4 suites, **2.6 seconds**.
+5 tests, 3 suites, **~5 seconds**.
 
 ---
 
@@ -46,7 +46,6 @@ On first run, the Lightpanda browser engine (~18MB) is automatically downloaded 
 ```swift
 import SwiftHeadlessBrowser
 
-// Lightpanda auto-downloads on first use (~18MB)
 let browser = try await HeadlessBrowser.create()
 
 // Load a JS-rendered page
@@ -65,45 +64,28 @@ if case .success(let elements) = links {
 }
 ```
 
-### With Chrome (optional)
-
-```swift
-let (browser, process) = try await HeadlessBrowser.withChrome()
-defer { BrowserProcessLauncher.terminate(process) }
-
-let page: HTMLPage = try await browser.open(url).execute()
-let title: String = try await browser.execute("document.title").execute()
-```
-
 ---
 
-## Page Load Strategies (Chrome only)
+## CSS Selectors
 
-```swift
-HeadlessBrowser.withChrome(waitStrategy: .load)
-HeadlessBrowser.withChrome(waitStrategy: .networkIdle(idleTime: 0.5))
-HeadlessBrowser.withChrome(waitStrategy: .selector("#job-list"))
-HeadlessBrowser.withChrome(waitStrategy: .jsCondition("window.dataLoaded"))
-```
+| Selector | Example |
+|----------|---------|
+| `.id("value")` | `.id("header")` |
+| `.class("value")` | `.class("job-card")` |
+| `.name("value")` | `.name("email")` |
+| `.cssSelector("query")` | `.cssSelector("a[href*='/jobs/']")` |
+| `.attribute("key", "val")` | `.attribute("data-id", "123")` |
+| `.contains("key", "val")` | `.contains("href", "/careers/")` |
 
 ---
-
-## Architecture
-
-```
-SwiftHeadlessBrowser
-├── HeadlessBrowserCore      — HeadlessBrowser, BrowserEngine protocol, HTML parsing
-└── HeadlessBrowserRemote    — LightpandaEngine (default), RemoteBrowserEngine (Chrome CDP)
-```
-
-**Dependencies:** [SwiftSoup](https://github.com/scinfu/SwiftSoup) only.
 
 ## How It Works
 
-1. `HeadlessBrowser.create()` downloads Lightpanda to `~/.cache/swift-headless-browser/` (first run only)
-2. Runs `lightpanda fetch --dump html` as a subprocess — renders full JS
-3. SwiftSoup parses the returned HTML for element extraction
-4. No WebSocket, no Chrome, no external dependencies
+1. `HeadlessBrowser.create()` downloads [Lightpanda](https://lightpanda.io/) to `~/.cache/swift-headless-browser/` (first run only, ~18MB)
+2. Runs `lightpanda fetch --dump html` as a subprocess — renders full JavaScript
+3. [SwiftSoup](https://github.com/scinfu/SwiftSoup) parses the returned HTML for element extraction
+
+12 source files. Only dependency: SwiftSoup.
 
 ---
 
