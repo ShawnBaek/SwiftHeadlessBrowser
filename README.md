@@ -24,6 +24,8 @@ UBER:      id=157663     title=2026 Account Management Intern, Amsterdam
 
 ## Installation
 
+Add to your `Package.swift` — that's it. **Nothing else to install.**
+
 ```swift
 dependencies: [
     .package(url: "https://github.com/ShawnBaek/SwiftHeadlessBrowser.git", from: "2.0.0")
@@ -33,6 +35,9 @@ dependencies: [
 ```swift
 .target(name: "YourApp", dependencies: ["SwiftHeadlessBrowser"])
 ```
+
+No `brew install`, no `apt-get`, no Chrome, no system dependencies.
+On first run, the Lightpanda browser engine (~18MB) is automatically downloaded to `~/.cache/swift-headless-browser/`. Subsequent runs use the cached binary instantly.
 
 ---
 
